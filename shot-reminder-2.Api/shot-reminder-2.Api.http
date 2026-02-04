@@ -1,0 +1,6 @@
+@shot_reminder_2.Api_HostAddress = http://localhost:5138
+
+GET {{shot_reminder_2.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

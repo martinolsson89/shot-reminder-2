@@ -1,0 +1,1 @@
+﻿public enum enLeg { Left, Right }

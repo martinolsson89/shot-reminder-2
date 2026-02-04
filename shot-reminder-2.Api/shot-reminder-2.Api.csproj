@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>shot_reminder_2.Api</RootNamespace>
+    <UserSecretsId>ab73a23c-955b-464e-aa7f-6ed1e4e9ce31</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.2" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\shot-reminder-2.Application\shot-reminder-2.Application.csproj" />
+    <ProjectReference Include="..\shot-reminder-2.Contracts\shot-reminder-2.Contracts.csproj" />
+    <ProjectReference Include="..\shot-reminder-2.Infrastructure\shot-reminder-2.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
