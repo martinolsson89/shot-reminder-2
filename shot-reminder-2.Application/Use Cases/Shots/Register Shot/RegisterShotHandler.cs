@@ -1,6 +1,9 @@
 ﻿
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using shot_reminder_2.Application.Commons;
 using shot_reminder_2.Application.Interfaces;
+using shot_reminder_2.Application.Options;
 using shot_reminder_2.Domain.Entities;
 
 namespace shot_reminder_2.Application.Use_Cases.Shots.Register_Shot;
@@ -12,19 +15,25 @@ public class RegisterShotHandler
     private readonly IInventoryRepository _inventoryRepository;
     private readonly IEmailSender _emailSender;
     private readonly ICalendarService _calendarService;
+    private readonly ShotSettings _settings;
+    private readonly ILogger<RegisterShotHandler> _logger;
 
-    public RegisterShotHandler(IUserRepository userRepository, IShotRepository shotRepository, IInventoryRepository inventoryRepository, IEmailSender emailSender, ICalendarService calendarService)
+    public RegisterShotHandler(IUserRepository userRepository, IShotRepository shotRepository, IInventoryRepository inventoryRepository, 
+        IEmailSender emailSender, ICalendarService calendarService, IOptions<ShotSettings> shotSettings, ILogger<RegisterShotHandler> logger)
     {
         _userRepository = userRepository;
         _shotRepository = shotRepository;
         _inventoryRepository = inventoryRepository;
         _emailSender = emailSender;
         _calendarService = calendarService;
+        _settings = shotSettings.Value;
+        _logger = logger;
     }
 
     public async Task<RegisterShotResult> HandleAsync(RegisterShotCommand command, CancellationToken ct = default)
     {
-        int intervalDays = 14;
+        var intervalDays = _settings.IntervalDays;
+        var lowStockThreshold = _settings.LowStockThreshold;
 
         var user = await _userRepository.GetByIdAsync(command.userId, ct);
         if (user is null)
@@ -43,10 +52,12 @@ public class RegisterShotHandler
         try
         {
             shotId = await _shotRepository.InsertAsync(shot, ct);
+            _logger.LogInformation("Registering shot for user {UserId}", command.userId);
 
             var remaining = await _inventoryRepository.ConsumeOneAsync(command.userId, ct);
+            _logger.LogInformation("Inventory remaining after consume: {Remaining}", remaining);
 
-           if(remaining <= 2)
+            if (remaining <= lowStockThreshold)
             {
                 try
                 {
@@ -59,6 +70,7 @@ public class RegisterShotHandler
                 catch
                 {
                     // swallow (or log) — don't break shot registration due to email
+                    _logger.LogWarning("Failed to send email to user {UserId} regarding low stock", command.userId);
                 }
             }
 
@@ -72,7 +84,7 @@ public class RegisterShotHandler
             }
             catch
             {
-                // log, but do NOT throw
+                _logger.LogWarning("Calendar update failed for user {UserId}", command.userId);
             }
 
 

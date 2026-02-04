@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using shot_reminder_2.Api.Middleware;
 using shot_reminder_2.Application.Interfaces;
+using shot_reminder_2.Application.Options;
 using shot_reminder_2.Application.Use_Cases.Auth.Login;
 using shot_reminder_2.Application.Use_Cases.Auth.Register;
 using shot_reminder_2.Application.Use_Cases.Inventory.AddStock;
@@ -49,6 +50,8 @@ builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
 
 builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection("Jwt"));
+builder.Services.Configure<ShotSettings>(builder.Configuration.GetSection("ShotSettings"));
+
 
 builder.Services.AddSingleton<ITokenService, JwtTokenService>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasherAdapter>();

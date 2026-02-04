@@ -2,6 +2,7 @@
 using Google.Apis.Calendar.v3.Data;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using shot_reminder_2.Application.Commons;
 using shot_reminder_2.Application.Interfaces;
 using shot_reminder_2.Infrastructure.Presistence.Mongo.Collections;
 using shot_reminder_2.Infrastructure.Presistence.Mongo.Context;
@@ -30,7 +31,7 @@ public sealed class GoogleCalendarService : ICalendarService
     {
         var user = await _users.Find(x => x.Id == userId).FirstOrDefaultAsync(ct);
         if (user is null)
-            throw new InvalidOperationException($"User '{userId}' not found.");
+            throw new NotFoundException($"User '{userId}' not found.");
 
         var calendarId = user.GoogleCalendarId ?? _opt.CalendarId;
 

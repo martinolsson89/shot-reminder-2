@@ -35,7 +35,7 @@ public class InventoryRepository : IInventoryRepository
         catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
         {
             // If you use UserId as _id or have a unique index, this happens when doc already exists
-            throw new InvalidOperationException("Inventory already exists. Use restock instead.");
+            throw new ConflictException("Inventory already exists. Use restock instead.");
         }
 
     }

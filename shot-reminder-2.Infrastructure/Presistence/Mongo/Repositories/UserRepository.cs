@@ -71,6 +71,6 @@ public sealed class UserRepository : IUserRepository
             PasswordHash = user.PasswordHash,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            CreatedAtUtc = user.CreatedAtUtc // rename to CreatedAtUtc if you fix the typo
+            CreatedAtUtc = user.CreatedAtUtc 
         };
 }

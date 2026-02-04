@@ -24,8 +24,10 @@ public sealed class ExceptionMiddleware : IMiddleware
                     context.Response.StatusCode = StatusCodes.Status404NotFound;
                     break;
 
-                case BadRequestException:
+                case ArgumentOutOfRangeException:
                 case ArgumentException:
+                case InvalidOperationException:
+                case BadRequestException:
                     context.Response.StatusCode = StatusCodes.Status400BadRequest;
                     break;
 
