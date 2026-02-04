@@ -7,8 +7,6 @@ using shot_reminder_2.Application.Use_Cases.Shots.GetById;
 using shot_reminder_2.Application.Use_Cases.Shots.Register_Shot;
 using shot_reminder_2.Application.Use_Cases.Shots.Update_Shot;
 using shot_reminder_2.Contracts.Shots;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 
 namespace shot_reminder_2.Api.Controllers;
 
@@ -59,54 +57,29 @@ public class ShotsController : ControllerBase
     {
         var userId = User.GetUserId();
         
-        try
-        {
+        await _updateShotHandler.HandleAsync(new UpdateShotCommand
+            (
+                Id: id,
+                UserId: userId,
+                TakenAtUtc: request.TakenAtUtc,
+                Leg: request.Leg,
+                Comment: request.Comment
+            ),
+            ct);
 
-            await _updateShotHandler.HandleAsync(new UpdateShotCommand
-                (
-                    Id: id,
-                    UserId: userId,
-                    TakenAtUtc: request.TakenAtUtc,
-                    Leg: request.Leg,
-                    Comment: request.Comment
-                ),
-                ct);
-
-            return NoContent();
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-
+        return NoContent();
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteShot(Guid id, CancellationToken ct)
     {
         var userId = User.GetUserId();
-        
-        try
-        {
 
-            await _deleteShotHandler.HandleAsync(
-                new DeleteShotCommand(id, userId),
-                ct);
+        await _deleteShotHandler.HandleAsync(
+            new DeleteShotCommand(id, userId),
+            ct);
 
-            return NoContent();
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        return NoContent();
     }
 
     [HttpGet]
@@ -134,7 +107,7 @@ public class ShotsController : ControllerBase
 
         if(result is null)
         {
-            return Ok("Should not find shot");
+            return NotFound();
         }
 
         var response = new ShotItemDto(result.Id, result.UserId, result.TakenAtUtc, result.Leg, result.Comment);

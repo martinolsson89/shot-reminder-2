@@ -38,39 +38,21 @@ public class InventoryController : ControllerBase
     {
         var userId = User.GetUserId();
 
-        try
-        {
-            await _addStockHandler.HandleAsync(new AddstockCommand(userId, request.shots), ct);
-            return NoContent();
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { message = ex.Message });
-        }
+        await _addStockHandler.HandleAsync(new AddstockCommand(userId, request.shots), ct);
+        
+        return NoContent();
+
     }
 
     [HttpPost("restock")]
     public async Task<IActionResult> ReStock(AddStockRequest request, CancellationToken ct)
     {
         var userId = User.GetUserId();
+        
+        await _restockHandler.HandleAsync(new RestockCommand(userId, request.shots), ct);
+        
+        return NoContent();
 
-        try
-        {
-            await _restockHandler.HandleAsync(new RestockCommand(userId, request.shots), ct);
-            return NoContent();
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { message = ex.Message });
-        }
     }
 
     [HttpPost("consume")]
@@ -78,19 +60,10 @@ public class InventoryController : ControllerBase
     {
         var userId = User.GetUserId();
 
-        try
-        {
-            await _consumeOneHandler.HandleAsync(userId, ct);
-            return NoContent();
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { message = ex.Message });
-        }
+        await _consumeOneHandler.HandleAsync(userId, ct);
+        
+        return NoContent();
+        
     }
 
     [HttpDelete]
@@ -98,21 +71,9 @@ public class InventoryController : ControllerBase
     {
         var userId = User.GetUserId();
 
-        try
-        {
+        await _deleteInventoryHandler.HandleAsync(userId, ct);
 
-            await _deleteInventoryHandler.HandleAsync(userId, ct);
-
-            return NoContent();
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        return NoContent();
     }
 
     [HttpPut("update")]
@@ -120,18 +81,7 @@ public class InventoryController : ControllerBase
     {
         var userId = User.GetUserId();
 
-        try
-        {
-            await _updateStockHandler.HandleAsync(new RestockCommand(userId, request.shots), ct);
-            return NoContent();
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { message = ex.Message });
-        }
+        await _updateStockHandler.HandleAsync(new RestockCommand(userId, request.shots), ct);
+        return NoContent();
     }
 }

@@ -1,5 +1,6 @@
 ﻿
 using MongoDB.Driver;
+using shot_reminder_2.Application.Commons;
 using shot_reminder_2.Application.Interfaces;
 using shot_reminder_2.Domain.Entities;
 using shot_reminder_2.Infrastructure.Presistence.Mongo.Collections;
@@ -43,7 +44,7 @@ public class InventoryRepository : IInventoryRepository
     {
 
         var exists = await _inventory.Find(x => x.UserId == userId).AnyAsync(ct);
-        if (!exists) throw new InvalidOperationException("Inventory not found.");
+        if (!exists) throw new NotFoundException("Inventory not found.");
 
         var filter = Builders<ShotsInventoryDocument>.Filter.And(
         Builders<ShotsInventoryDocument>.Filter.Eq(x => x.UserId, userId),
@@ -62,7 +63,7 @@ public class InventoryRepository : IInventoryRepository
         var updated = await _inventory.FindOneAndUpdateAsync(filter, update, options, ct);
 
         if (updated is null)
-            throw new InvalidOperationException("No shots left in inventory.");
+            throw new InsufficientInventoryException("No shots left in inventory.");
 
         return updated.ShotsLeft;
     }

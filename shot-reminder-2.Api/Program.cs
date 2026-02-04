@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using shot_reminder_2.Api.Middleware;
 using shot_reminder_2.Application.Interfaces;
 using shot_reminder_2.Application.Use_Cases.Auth.Login;
 using shot_reminder_2.Application.Use_Cases.Auth.Register;
@@ -59,6 +60,7 @@ builder.Services.AddSingleton<GoogleCalendarClientFactory>();
 builder.Services.AddSingleton<ICalendarService, GoogleCalendarService>();
 
 
+builder.Services.AddTransient<ExceptionMiddleware>();
 
 builder.Services.AddControllers();
 
@@ -105,6 +107,8 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseMiddleware<ExceptionMiddleware>();
 
 app.MapControllers();
 
