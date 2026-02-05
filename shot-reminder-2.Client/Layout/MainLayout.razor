@@ -1,14 +1,26 @@
 ﻿@inherits LayoutComponentBase
 
-<MudThemeProvider />
+<MudThemeProvider Theme="@_theme" IsDarkMode="@_isDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar>
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
-        Shot Reminder 2.0
+    <MudAppBar Color="Color.Surface">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       Color="Color.Secondary"
+                       Edge="Edge.Start"
+                       OnClick="@((e) => DrawerToggle())" />
+
+        <MudImage Src="logo.png" Alt="Logo" Height="75" Class="ms-2" />
+        <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight: 600">Shots Reminder 2.0</MudText>
+
+        <MudSpacer />
+
+        <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                       Color="Color.Secondary"
+                       Edge="Edge.End"
+                       OnClick="ToggleDarkMode" />
     </MudAppBar>
     <MudDrawer @bind-Open="@_drawerOpen">
         <MyNavMenu/>
@@ -22,9 +34,39 @@
 
 @code {
     bool _drawerOpen = false;
+    bool _isDarkMode;
 
     void DrawerToggle()
     {
         _drawerOpen = !_drawerOpen;
     }
+
+    void ToggleDarkMode()
+    {
+        _isDarkMode = !_isDarkMode;
+    }
+
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#7e6fff",
+            Secondary = "#424242",
+            Background = "#ffffff",
+            AppbarBackground = "#ffffff",
+            DrawerBackground = "#ffffff",
+            Surface = "#ffffff"
+          
+            
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#7e6fff",
+            Secondary = "#b2b0bf",
+            Background = "#1a1a26",
+            AppbarBackground = "#1a1a26",
+            DrawerBackground = "#1a1a26",
+            Surface = "#1a1a26"
+        }
+    };
 }

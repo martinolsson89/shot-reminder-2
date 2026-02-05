@@ -3,6 +3,11 @@ html, body{
     font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
 }
 
+.mud-nav-link,
+.mud-nav-link-text {
+    font-weight: 600;
+}
+
 .loading-progress {
     position: absolute;
     display: block;

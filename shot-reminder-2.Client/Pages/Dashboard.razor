@@ -1,40 +1,60 @@
 ﻿@page "/"
 
 @using shot_reminder_2.Contracts.Auth
+@using Microsoft.AspNetCore.Components.Web
 @implements IDisposable
 @inject shot_reminder_2.Client.Services.AuthService Auth
 
 <PageTitle>Dashboard</PageTitle>
 
-<MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="min-height: calc(100vh - 64px); text-align: center;">
-    <MudText Typo="Typo.h4">Dashboard</MudText>
+<MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="mt-20" Style="text-align: center;">
+    <MudText Typo="Typo.h4" Inline>
+        <strong>Explore</strong>&nbsp;<strong style="color:#7e6fff;">Dashboard</strong>
+    </MudText>
 
     @if (_loading)
     {
-        <MudText>Loading...</MudText>
+        <MudText Color="Color.Secondary">Loading...</MudText>
     }
     else if (!_isLoggedIn)
     {
-        <MudText Class="mb-4">Welcome! Please log in to continue.</MudText>
+        <MudText Class="mb-4" Color="Color.Secondary">Welcome! Please log in to continue.</MudText>
 
         <MudPaper Class="pa-4" MaxWidth="400px">
-            <MudTextField @bind-Value="_email" Label="Email" Variant="Variant.Outlined" Margin="Margin.Dense" FullWidth="true" />
-            <MudTextField @bind-Value="_password" Label="Password" Variant="Variant.Outlined" Margin="Margin.Dense" FullWidth="true" InputType="InputType.Password" />
+            <MudForm @onsubmit="LoginAsync">
+                <MudTextField @bind-Value="_email"
+                              Label="Email"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              FullWidth="true" />
 
-            <MudButton Disabled="@_submitting" Variant="Variant.Filled" Color="Color.Primary" OnClick="LoginAsync" Class="mt-3">
-                Login
-            </MudButton>
+                <MudTextField @bind-Value="_password"
+                              Label="Password"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              FullWidth="true"
+                              InputType="InputType.Password"
+                              OnKeyUp="PasswordKeyUpAsync" />
 
-            @if (!string.IsNullOrWhiteSpace(_error))
-            {
-                <MudText Color="Color.Error" Class="mt-2">@_error</MudText>
-            }
+                <MudButton Disabled="@_submitting"
+                           ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Class="mt-3">
+                    Login
+                </MudButton>
+
+                @if (!string.IsNullOrWhiteSpace(_error))
+                {
+                    <MudText Color="Color.Error" Class="mt-2">@_error</MudText>
+                }
+            </MudForm>
         </MudPaper>
     }
     else
     {
-        <MudText Typo="Typo.h6" Class="mb-2">You're logged in.</MudText>
-        <MudText>Dashboard content goes here.</MudText>
+        <MudText Typo="Typo.h6" Class="mb-2" Color="Color.Primary" Style="font-weight: 600">You're logged in.</MudText>
+        <MudText Color="Color.Secondary">Dashboard content goes here.</MudText>
     }
 </MudStack>
 
@@ -86,6 +106,12 @@
             _submitting = false;
             _password = string.Empty;
         }
+    }
+
+    private async Task PasswordKeyUpAsync(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" && !_submitting)
+            await LoginAsync();
     }
 
 
