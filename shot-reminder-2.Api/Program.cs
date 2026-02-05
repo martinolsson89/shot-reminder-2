@@ -26,6 +26,8 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var corsPolicyName = "Client";
+
 // Add services to the container.
 builder.Services.AddScoped<RegisterShotHandler>();
 builder.Services.AddScoped<GetShotsHandler>();
@@ -67,6 +69,19 @@ builder.Services.AddTransient<ExceptionMiddleware>();
 
 builder.Services.AddControllers();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(corsPolicyName, policy =>
+    {
+        policy
+            .WithOrigins(
+                "http://localhost:5208",
+                "https://localhost:7046")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 builder.Services.Configure<MongoOptions>(
     builder.Configuration.GetSection("Mongo"));
 
@@ -107,6 +122,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors(corsPolicyName);
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -1,6 +1,7 @@
 <Solution>
   <Project Path="shot-reminder-2.Api/shot-reminder-2.Api.csproj" Id="5996f7d3-a1a9-4b6b-a992-828c2becd295" />
   <Project Path="shot-reminder-2.Application/shot-reminder-2.Application.csproj" Id="031cae21-8667-43ea-804d-dbfe215a8d4c" />
+  <Project Path="shot-reminder-2.Client/shot-reminder-2.Client.csproj" Id="f59bdb28-d047-48f7-b784-749353060b9d" />
   <Project Path="shot-reminder-2.Contracts/shot-reminder-2.Contracts.csproj" Id="b3f9686d-ae0d-42d2-b4ee-907e73960bc9" />
   <Project Path="shot-reminder-2.Domain/shot-reminder-2.Domain.csproj" Id="963bffd4-1c72-480f-a36c-81f57da12988" />
   <Project Path="shot-reminder-2.Infrastructure/shot-reminder-2.Infrastructure.csproj" Id="059ace16-81ac-4f68-8fc9-b79633308b58" />
