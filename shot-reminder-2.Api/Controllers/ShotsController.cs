@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using shot_reminder_2.Api.Extensions;
 using shot_reminder_2.Application.Use_Cases.Shots.Delete_Shot;
+using shot_reminder_2.Application.Use_Cases.Shots.Get_Latest;
 using shot_reminder_2.Application.Use_Cases.Shots.GetAll;
 using shot_reminder_2.Application.Use_Cases.Shots.GetById;
 using shot_reminder_2.Application.Use_Cases.Shots.Register_Shot;
@@ -21,15 +22,17 @@ public class ShotsController : ControllerBase
     private readonly GetShotsHandler _getShotsHandler;
     private readonly DeleteShotHandler _deleteShotHandler;
     private readonly GetShotByIdHandler _getShotByIdHandler;
+    private readonly GetLatestHandler _getLatestHandler;
 
     public ShotsController(RegisterShotHandler shotHandler, GetShotsHandler getShotsHandler, UpdateShotHandler updateShotHandler, DeleteShotHandler deleteShotHandler,
-        GetShotByIdHandler getShotByIdHandler)
+        GetShotByIdHandler getShotByIdHandler, GetLatestHandler getLatestHandler)
     {
         _shotHandler = shotHandler;
         _updateShotHandler = updateShotHandler;
         _getShotsHandler = getShotsHandler;
         _deleteShotHandler = deleteShotHandler;
         _getShotByIdHandler = getShotByIdHandler;
+        _getLatestHandler = getLatestHandler;
     }
 
     [HttpPost]
@@ -104,6 +107,22 @@ public class ShotsController : ControllerBase
         var userId = User.GetUserId();
 
         var result = await _getShotByIdHandler.HandleAsync(id, userId, ct);
+
+        if(result is null)
+        {
+            return NotFound();
+        }
+
+        var response = new ShotItemDto(result.Id, result.UserId, result.TakenAtUtc, result.Leg, result.Comment);
+        return Ok(response);
+    }
+
+    [HttpGet("latest")]
+    public async Task<IActionResult> GetLatest(CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+
+        var result = await _getLatestHandler.HandleAsync(userId, ct);
 
         if(result is null)
         {

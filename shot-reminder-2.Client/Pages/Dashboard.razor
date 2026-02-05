@@ -1,23 +1,24 @@
 ﻿@page "/"
 
 @using shot_reminder_2.Contracts.Auth
+@using shot_reminder_2.Contracts.Shots
 @using Microsoft.AspNetCore.Components.Web
 @implements IDisposable
 @inject shot_reminder_2.Client.Services.AuthService Auth
+@inject shot_reminder_2.Client.Services.ShotsService Shots
 
 <PageTitle>Dashboard</PageTitle>
 
 <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="mt-20" Style="text-align: center;">
-    <MudText Typo="Typo.h4" Inline>
-        <strong>Explore</strong>&nbsp;<strong style="color:#7e6fff;">Dashboard</strong>
-    </MudText>
-
     @if (_loading)
     {
         <MudText Color="Color.Secondary">Loading...</MudText>
     }
     else if (!_isLoggedIn)
     {
+        <MudText Typo="Typo.h4" Inline>
+            <strong>Explore</strong>&nbsp;<strong style="color:#7e6fff;">Dashboard</strong>
+        </MudText>
         <MudText Class="mb-4" Color="Color.Secondary">Welcome! Please log in to continue.</MudText>
 
         <MudPaper Class="pa-4" MaxWidth="400px">
@@ -54,7 +55,79 @@
     else
     {
         <MudText Typo="Typo.h6" Class="mb-2" Color="Color.Primary" Style="font-weight: 600">You're logged in.</MudText>
-        <MudText Color="Color.Secondary">Dashboard content goes here.</MudText>
+        <MudText Typo="Typo.h4" Inline>
+            <strong>Explore</strong>&nbsp;<strong style="color:#7e6fff;">Dashboard</strong>
+        </MudText>
+
+        <MudGrid>
+            <MudItem xs="12">
+                <MudPaper Class="mud-width-full pa-6">
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.h6" Color="Color.Secondary" Style="font-weight: 600">Register new shot</MudText>
+
+                        @if (!string.IsNullOrWhiteSpace(_shotSuccess))
+                        {
+                            <MudAlert Severity="Severity.Success" Dense="true">@_shotSuccess</MudAlert>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(_shotError))
+                        {
+                            <MudAlert Severity="Severity.Error" Dense="true">@_shotError</MudAlert>
+                        }
+
+                        <MudForm @ref="_shotForm" @onsubmit="RegisterShotAsync">
+                            <MudTextField @bind-Value="_shotModel.Comment"
+                                          Label="Comment (optional)"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          FullWidth="true" />
+
+                            <MudRadioGroup T="enLeg" @bind-Value="_shotModel.Leg" Required="true" RequiredError="Leg is required!" Class="mt-2">
+                                <MudRadio T="enLeg" Value="enLeg.Left">Left</MudRadio>
+                                <MudRadio T="enLeg" Value="enLeg.Right">Right</MudRadio>
+                            </MudRadioGroup>
+
+                            <MudStack Direction="Row" Spacing="2" Class="mt-4">
+                                <MudButton Disabled="@_submitting"
+                                           ButtonType="ButtonType.Submit"
+                                           Variant="Variant.Filled"
+                                           Color="Color.Primary">
+                                    Register
+                                </MudButton>
+
+                                <MudButton Disabled="@_submitting"
+                                           OnClick="ResetShotForm"
+                                           Variant="Variant.Outlined"
+                                           Color="Color.Secondary">
+                                    Reset
+                                </MudButton>
+                            </MudStack>
+                        </MudForm>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">
+                    <MudText Typo="Typo.h6" Color="Color.Secondary" Style="font-weight: 600">Last registered shot</MudText>
+                    <MudText></MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=12 sm=6</MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
+            </MudItem>
+        </MudGrid>
     }
 </MudStack>
 
@@ -67,6 +140,11 @@
     private string _email = string.Empty;
     private string _password = string.Empty;
     private string? _error;
+
+    private MudForm? _shotForm;
+    private ShotFormModel _shotModel = new() { Leg = enLeg.Left };
+    private string? _shotError;
+    private string? _shotSuccess;
 
     protected override async Task OnInitializedAsync()
     {
@@ -106,6 +184,50 @@
             _submitting = false;
             _password = string.Empty;
         }
+    }
+
+    private async Task RegisterShotAsync()
+    {
+        _shotError = null;
+        _shotSuccess = null;
+
+        if (_shotForm is null)
+            return;
+
+        await _shotForm.Validate();
+        if (!_shotForm.IsValid)
+            return;
+
+        _submitting = true;
+        try
+        {
+            await Shots.RegisterShotAsync(new RegisterShotRequest(_shotModel.Leg, _shotModel.Comment));
+            _shotSuccess = "Shot registered.";
+            _shotModel = new ShotFormModel { Leg = _shotModel.Leg };
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            _shotError = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private void ResetShotForm()
+    {
+        _shotError = null;
+        _shotSuccess = null;
+        _shotModel = new() { Leg = enLeg.Left };
+        _ = _shotForm?.ResetAsync();
+    }
+
+    private sealed class ShotFormModel
+    {
+        public enLeg Leg { get; set; }
+        public string? Comment { get; set; }
     }
 
     private async Task PasswordKeyUpAsync(KeyboardEventArgs e)

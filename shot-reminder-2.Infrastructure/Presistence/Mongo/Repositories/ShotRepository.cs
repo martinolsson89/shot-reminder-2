@@ -1,5 +1,4 @@
-﻿
-using MongoDB.Driver;
+﻿using MongoDB.Driver;
 using shot_reminder_2.Application.Interfaces;
 using shot_reminder_2.Domain.Entities;
 using shot_reminder_2.Infrastructure.Presistence.Mongo.Collections;
@@ -98,6 +97,26 @@ public sealed class ShotRepository : IShotRepository
         );
 
         var doc = await _shots.Find(filter).FirstOrDefaultAsync(ct);
+
+        if (doc is null)
+            return null;
+
+        return new TakenShot(
+            id: doc.Id,
+            userid: doc.UserId,
+            takenAtUtc: doc.TakenAtUtc,
+            leg: doc.Leg,
+            comment: doc.Comment
+        );
+    }
+
+    public async Task<TakenShot?> GetLatestAsync(Guid userId, CancellationToken ct = default)
+    {
+        var filter = Builders<TakenShotDocument>.Filter.Eq(x => x.UserId, userId);
+
+        var doc = await _shots.Find(filter)
+            .SortByDescending(x => x.TakenAtUtc)
+            .FirstOrDefaultAsync(ct);
 
         if (doc is null)
             return null;
