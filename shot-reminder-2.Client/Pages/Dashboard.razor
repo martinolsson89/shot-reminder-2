@@ -63,7 +63,7 @@
             <MudItem xs="12">
                 <MudPaper Class="mud-width-full pa-6">
                     <MudStack Spacing="2">
-                        <MudText Typo="Typo.h6" Color="Color.Secondary" Style="font-weight: 600">Register new shot</MudText>
+                        <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight: 600">Register new shot</MudText>
 
                         @if (!string.IsNullOrWhiteSpace(_shotSuccess))
                         {
@@ -107,13 +107,61 @@
                 </MudPaper>
             </MudItem>
             <MudItem xs="12" sm="6">
-                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">
-                    <MudText Typo="Typo.h6" Color="Color.Secondary" Style="font-weight: 600">Last registered shot</MudText>
-                    <MudText></MudText>
+                <MudPaper Class="align-center justify-center mud-width-full py-8">
+                    <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight: 600">Next upcoming shot</MudText>
+                    <MudText Color="Color.Secondary" Style="font-weight: 600">
+                        Due: @(_latestShot is null ? "-" : DueLabelUntil(CalculateUpcomingShot(_latestShot.TakenAtUtc)))
+                    </MudText>
+
+                    @if (!string.IsNullOrWhiteSpace(_getLatestError))
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true">@_getLatestError</MudAlert>
+                    }
+                    else if (_latestShotLoading)
+                    {
+                        <MudText Color="Color.Secondary">Loading...</MudText>
+                    }
+                    else if (_latestShot is null)
+                    {
+                        <MudText Color="Color.Secondary">No shots registered yet.</MudText>
+                    }
+                    else
+                    {
+                        <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                            <MudText><strong>Leg:</strong> @(_latestShot.Leg == enLeg.Left ? enLeg.Right : enLeg.Left)</MudText>
+                            <MudText><strong>When:</strong> @CalculateUpcomingShot(_latestShot.TakenAtUtc).ToLocalTime().ToString("yyyy-MM-dd HH:mm")</MudText>
+                        </MudStack>
+                    }
                 </MudPaper>
             </MudItem>
             <MudItem xs="12" sm="6">
-                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=12 sm=6</MudPaper>
+                <MudPaper Class="align-center justify-center mud-width-full py-8">
+                    <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight: 600">Last taken shot</MudText>
+
+                    @if (!string.IsNullOrWhiteSpace(_getLatestError))
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true">@_getLatestError</MudAlert>
+                    }
+                    else if (_latestShotLoading)
+                    {
+                        <MudText Color="Color.Secondary">Loading...</MudText>
+                    }
+                    else if (_latestShot is null)
+                    {
+                        <MudText Color="Color.Secondary">No shots registered yet.</MudText>
+                    }
+                    else
+                    {
+                        <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                            <MudText><strong>Leg:</strong> @_latestShot.Leg</MudText>
+                            <MudText><strong>When:</strong> @_latestShot.TakenAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</MudText>
+                            @if (!string.IsNullOrWhiteSpace(_latestShot.Comment))
+                            {
+                                <MudText><strong>Comment:</strong> @_latestShot.Comment</MudText>
+                            }
+                        </MudStack>
+                    }
+                </MudPaper>
             </MudItem>
             <MudItem xs="6" sm="3">
                 <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
@@ -146,10 +194,17 @@
     private string? _shotError;
     private string? _shotSuccess;
 
+    private bool _latestShotLoading;
+    private LatestShotFormModel? _latestShot;
+    private string? _getLatestError;
+
+
     protected override async Task OnInitializedAsync()
     {
         Auth.AuthStateChanged += OnAuthStateChanged;
         _isLoggedIn = await Auth.IsLoggedInAsync();
+        if (_isLoggedIn)
+            await GetLatestShotAsync();
         _loading = false;
     }
 
@@ -158,6 +213,8 @@
         _ = InvokeAsync(async () =>
         {
             _isLoggedIn = await Auth.IsLoggedInAsync();
+            if (_isLoggedIn)
+                await GetLatestShotAsync();
             StateHasChanged();
         });
     }
@@ -204,6 +261,7 @@
             await Shots.RegisterShotAsync(new RegisterShotRequest(_shotModel.Leg, _shotModel.Comment));
             _shotSuccess = "Shot registered.";
             _shotModel = new ShotFormModel { Leg = _shotModel.Leg };
+            await GetLatestShotAsync();
             await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
@@ -230,11 +288,58 @@
         public string? Comment { get; set; }
     }
 
+    private sealed class LatestShotFormModel
+    {
+        public DateTime TakenAtUtc { get; set; }
+        public enLeg Leg { get; set; }
+        public string? Comment { get; set; }
+    }
+
     private async Task PasswordKeyUpAsync(KeyboardEventArgs e)
     {
         if (e.Key is "Enter" && !_submitting)
             await LoginAsync();
     }
 
+    private async Task GetLatestShotAsync()
+    {
+        _getLatestError = null;
+        _latestShotLoading = true;
 
+        try
+        {
+            var latestShot = await Shots.GetLatestShotAsync();
+            _latestShot = new LatestShotFormModel { TakenAtUtc = latestShot.TakenAtUtc, Leg = latestShot.Leg, Comment = latestShot.Comment };
+        }
+        catch (Exception ex)
+        {
+            _getLatestError = ex.Message;
+            _latestShot = null;
+        }
+        finally
+        {
+            _latestShotLoading = false;
+        }
+    }
+
+    private DateTime CalculateUpcomingShot(DateTime lastShotTimeUtc)
+        => lastShotTimeUtc.AddDays(14);
+
+    private string DueLabelUntil(DateTime targetUtc)
+    {
+        var nowUtc = DateTime.UtcNow;
+
+        // If overdue or due earlier today -> "Today"
+        if (targetUtc <= nowUtc)
+            return "Today";
+
+        var days = (targetUtc.Date - nowUtc.Date).Days;
+
+        return days switch
+        {
+            0 => "Today",
+            1 => "Tomorrow",
+            _ => $"{days} days"
+        };
+    }
 }

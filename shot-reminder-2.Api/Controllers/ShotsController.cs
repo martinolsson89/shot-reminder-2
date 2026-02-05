@@ -99,7 +99,7 @@ public class ShotsController : ControllerBase
         .Select(s => new ShotItemDto(s.Id, s.UserId, s.TakenAtUtc, s.Leg, s.Comment))
         .ToList();
 
-        return Ok(response);
+        return Ok(new ShotResponse(response));
     }
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetbyId(Guid id, CancellationToken ct)
