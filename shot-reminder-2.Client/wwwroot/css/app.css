@@ -3,6 +3,24 @@ html, body{
     font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
 }
 
+.calendar-mobile {
+    display: none;
+}
+
+.calendar-desktop {
+    display: block;
+}
+
+@media (max-width: 960px) {
+    .calendar-mobile {
+        display: block;
+    }
+
+    .calendar-desktop {
+        display: none;
+    }
+}
+
 .mud-nav-link,
 .mud-nav-link-text {
     font-weight: 600;
@@ -42,15 +60,13 @@ html, body{
         content: var(--blazor-load-percentage-text, "Loading");
     }
 
-/*code {
-    color: #c02d76;
-}
+@media (max-width: 599.98px) {
+    .mud-calendar {
+        overflow-x: auto;
+    }
 
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-    color: var(--bs-secondary-color);
-    text-align: end;
+    .mud-cal-toolbar {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
 }
-
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-    text-align: start;
-}*/

@@ -21,7 +21,12 @@ public sealed class ShotsService(HttpClient http, AuthService auth)
 
         using var response = await http.SendAsync(message, ct);
         if (!response.IsSuccessStatusCode)
+        {
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                await auth.LogoutAsync(ct);
+
             throw await CreateApiExceptionAsync(response, "Register shot failed", ct);
+        }
 
         var result = await response.Content.ReadFromJsonAsync<RegisterShotResponse>(cancellationToken: ct);
         return result ?? throw new InvalidOperationException("Server returned an empty response.");
@@ -40,7 +45,12 @@ public sealed class ShotsService(HttpClient http, AuthService auth)
 
         using var response = await http.SendAsync(message, ct);
         if (!response.IsSuccessStatusCode)
+        {
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                await auth.LogoutAsync(ct);
+
             throw await CreateApiExceptionAsync(response, "Get latest shot failed", ct);
+        }
 
         var result = await response.Content.ReadFromJsonAsync<ShotItemDto>(cancellationToken: ct);
         return result ?? throw new InvalidOperationException("Server returned an empty response.");
