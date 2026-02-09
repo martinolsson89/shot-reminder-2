@@ -221,7 +221,7 @@
     private string? _shotSuccess;
 
     private bool _latestShotLoading;
-    private LatestShotFormModel? _latestShot;
+    private LatestShotModel? _latestShot;
     private string? _getLatestError;
 
     private string GetColor(Color color) => $"var(--mud-palette-{color.ToDescriptionString()})";
@@ -329,7 +329,7 @@
         public string? Comment { get; set; }
     }
 
-    private sealed class LatestShotFormModel
+    private sealed class LatestShotModel
     {
         public DateTime TakenAtUtc { get; set; }
         public enLeg Leg { get; set; }
@@ -350,7 +350,7 @@
         try
         {
             var latestShot = await Shots.GetLatestShotAsync();
-            _latestShot = new LatestShotFormModel { TakenAtUtc = latestShot.TakenAtUtc, Leg = latestShot.Leg, Comment = latestShot.Comment };
+            _latestShot = new LatestShotModel { TakenAtUtc = latestShot.TakenAtUtc, Leg = latestShot.Leg, Comment = latestShot.Comment };
         }
         catch (Exception ex)
         {

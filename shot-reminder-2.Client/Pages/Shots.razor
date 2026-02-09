@@ -1,10 +1,180 @@
 ﻿@page "/shots"
 @inject HttpClient Http
+@implements IDisposable
+@inject shot_reminder_2.Client.Services.AuthService Auth
+@inject shot_reminder_2.Client.Services.ShotsService ShotsService
+@inject NavigationManager Nav
 
 <PageTitle>Shots</PageTitle>
 
 <h3>Shots</h3>
 
-@code {
+<MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="mt-20" Style="text-align: center;">
+    @if (_loading)
+    {
+        <MudText Color="Color.Secondary">Loading...</MudText>
+    }
+    else if (!_isLoggedIn)
+    {
+        _isLoggedIn = false;
+        Nav.NavigateTo("/");
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=12 sm=6</MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=12 sm=6</MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
+            </MudItem>
+            <MudItem xs="12">
+                <MudPaper Class="align-center justify-center mud-width-full py-8">
+                    <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight: 600">Taken Shots</MudText>
+                    @foreach(var shot in _pageResponse.Shots)
+                    {
+                        <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                            <MudText><strong>Leg:</strong> @shot.Leg</MudText>
+                            <MudText><strong>When:</strong> @shot.TakenAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</MudText>
+                            @if (!string.IsNullOrWhiteSpace(shot.Comment))
+                            {
+                                <MudText><strong>Comment:</strong> @shot.Comment</MudText>
+                            }
+                        </MudStack>
+                    }
+                    <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                        <MudText><strong>Page:</strong> @_pageResponse.Pagination.PageNumber</MudText>
+                        <MudText><strong>Page size:</strong> @_pageResponse.Pagination.PageSize</MudText>
+                        <MudText><strong>Total shots:</strong> @_pageResponse.Pagination.TotalItems</MudText>
+                        <MudText><strong>Total pages:</strong> @_pageResponse.Pagination.TotalPageCount</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+    </MudStack>
+@code 
+{
+    private bool _loading = true;
+    private bool _isLoggedIn;
 
+    private bool _getShotLoading;
+    private PageResponseModel _pageResponse = new();
+    private string? _getShotsError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.AuthStateChanged += OnAuthStateChanged;
+        _isLoggedIn = await Auth.IsLoggedInAsync();
+        if (_isLoggedIn)
+            await GetAllShotsAsync();
+
+        _loading = false;
+    }
+
+    private void OnAuthStateChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            _isLoggedIn = await Auth.IsLoggedInAsync();
+            if (_isLoggedIn)
+            {
+                await GetAllShotsAsync();
+            }
+            else
+            {
+                _pageResponse = new();
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        Auth.AuthStateChanged -= OnAuthStateChanged;
+    }
+
+    private sealed class Metadata
+    {
+        public int PageNumber { get; set; }
+        public int PageSize { get; set; }
+        public int TotalItems { get; set; }
+        public int TotalPageCount { get; set; }
+    }
+
+    private sealed class ShotModel
+    {
+        public Guid Id { get; set; }
+        public Guid UserId { get; set; }
+        public DateTime TakenAtUtc { get; set; }
+        public enLeg Leg { get; set; }
+        public string? Comment { get; set; }
+    }
+
+    private sealed class PageResponseModel
+    {
+        public List<ShotModel> Shots { get; set; } = new();
+        public Metadata Pagination { get; set; } = new();
+    }
+
+
+
+    private async Task GetAllShotsAsync()
+    {
+        _getShotsError = null;
+        _getShotLoading = true;
+
+        try
+        {
+            var getShots = await ShotsService.GetAllShotsAsync();
+            _pageResponse = new PageResponseModel
+            {
+                Pagination = new Metadata
+                {
+                    PageNumber = getShots.Pagination.PageNumber,
+                    PageSize = getShots.Pagination.PageSize,
+                    TotalItems = getShots.Pagination.TotalItems,
+                    TotalPageCount = getShots.Pagination.TotalPageCount
+                },
+                Shots = new ()
+
+            };
+            foreach(var s in getShots.Items)
+            {
+                var shot = new ShotModel
+                    {
+                        Id = s.Id,
+                        UserId = s.UserId,
+                        TakenAtUtc = s.TakenAtUtc,
+                        Leg = s.Leg,
+                        Comment = s.Comment
+                    };
+
+
+                _pageResponse.Shots.Add(shot);
+            }
+        }
+        catch (Exception ex)
+        {
+            _getShotsError = ex.Message;
+            _pageResponse = new();
+        }
+        finally
+        {
+            _getShotLoading = false;
+        }
+    }
 }

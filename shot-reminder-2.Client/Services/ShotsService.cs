@@ -1,6 +1,7 @@
+using shot_reminder_2.Contracts.Common;
+using shot_reminder_2.Contracts.Shots;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using shot_reminder_2.Contracts.Shots;
 
 namespace shot_reminder_2.Client.Services;
 
@@ -53,6 +54,30 @@ public sealed class ShotsService(HttpClient http, AuthService auth)
         }
 
         var result = await response.Content.ReadFromJsonAsync<ShotItemDto>(cancellationToken: ct);
+        return result ?? throw new InvalidOperationException("Server returned an empty response.");
+    }
+
+    public async Task<PagedResponse<ShotItemDto>> GetAllShotsAsync(CancellationToken ct = default)
+    {
+        var token = await auth.GetAccessTokenAsync(ct);
+
+        if (string.IsNullOrWhiteSpace(token))
+            throw new InvalidOperationException("Not logged in.");
+
+        using var message = new HttpRequestMessage(HttpMethod.Get, "api/shots");
+
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await http.SendAsync(message, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            if(response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                await auth.LogoutAsync(ct);
+
+            throw await CreateApiExceptionAsync(response, "Get all shots failed", ct);
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<PagedResponse<ShotItemDto>>(cancellationToken: ct);
         return result ?? throw new InvalidOperationException("Server returned an empty response.");
     }
 
