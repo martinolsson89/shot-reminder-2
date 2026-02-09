@@ -383,6 +383,13 @@
         if (_latestShot is null)
             return;
 
+        _events.Add(new CalendarItem
+        {
+            Start = _latestShot.TakenAtUtc,
+            End = _latestShot.TakenAtUtc.AddHours(1),
+            Text = "Taken Shot"
+        });
+
         var dueAt = CalculateUpcomingShot(_latestShot.TakenAtUtc);
         _events.Add(new CalendarItem
         {

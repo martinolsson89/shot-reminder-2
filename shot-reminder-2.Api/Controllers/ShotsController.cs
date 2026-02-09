@@ -7,6 +7,7 @@ using shot_reminder_2.Application.Use_Cases.Shots.GetAll;
 using shot_reminder_2.Application.Use_Cases.Shots.GetById;
 using shot_reminder_2.Application.Use_Cases.Shots.Register_Shot;
 using shot_reminder_2.Application.Use_Cases.Shots.Update_Shot;
+using shot_reminder_2.Contracts.Common;
 using shot_reminder_2.Contracts.Shots;
 
 namespace shot_reminder_2.Api.Controllers;
@@ -86,20 +87,24 @@ public class ShotsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> Get()
+    public async Task<ActionResult<PagedResponse<ShotItemDto>>> Get([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
+        if (page < 1)
+            return BadRequest("`page` must be greater than or equal to 1.");
+
+        if (pageSize < 1 || pageSize > 100)
+            return BadRequest("`pageSize` must be between 1 and 100.");
+
         var userId = User.GetUserId();
 
         var result = await _getShotsHandler.HandleAsync(userId);
-        
-        if (result.Shots is null || result.Shots.Count == 0)
-            return Ok(new ShotResponse(Array.Empty<ShotItemDto>()));
 
-        var response = result.Shots
-        .Select(s => new ShotItemDto(s.Id, s.UserId, s.TakenAtUtc, s.Leg, s.Comment))
-        .ToList();
+        var pagedResponse = result.Shots.ToPagedResponse(
+            page,
+            pageSize,
+            s => new ShotItemDto(s.Id, s.UserId, s.TakenAtUtc, s.Leg, s.Comment));
 
-        return Ok(new ShotResponse(response));
+        return Ok(pagedResponse);
     }
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetbyId(Guid id, CancellationToken ct)
