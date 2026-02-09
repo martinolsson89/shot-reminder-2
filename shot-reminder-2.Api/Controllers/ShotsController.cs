@@ -57,7 +57,7 @@ public class ShotsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> UpdateShot(Guid id, UpdateShotRequest request, CancellationToken ct)
+    public async Task<IActionResult> UpdateShot(Guid id, [FromBody] UpdateShotRequest request, CancellationToken ct)
     {
         var userId = User.GetUserId();
         

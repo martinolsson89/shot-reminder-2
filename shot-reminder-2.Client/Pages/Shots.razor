@@ -1,4 +1,5 @@
 @page "/shots"
+@inject HttpClient Http
 @inject shot_reminder_2.Client.Services.AuthService Auth
 @inject shot_reminder_2.Client.Services.ShotsService ShotsService
 @inject NavigationManager Nav
@@ -6,6 +7,9 @@
 
 @using shot_reminder_2.Contracts.Common
 @using shot_reminder_2.Contracts.Shots
+@using System.Globalization
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
 
 <PageTitle>Shots</PageTitle>
 
@@ -76,18 +80,89 @@
                 {
                     <MudPaper Elevation="1" Class="pa-4 mb-3">
                         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-                            <MudChip T="string" Color="@(shot.Leg == enLeg.Left ? Color.Tertiary : Color.Info)" Variant="Variant.Filled" Size="Size.Small">
-                                @shot.Leg leg
-                            </MudChip>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                @shot.TakenAtUtc.ToLocalTime().ToString("ddd, dd MMM yyyy HH:mm")
-                            </MudText>
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                                <MudChip T="string" Color="@(shot.Leg == enLeg.Left ? Color.Tertiary : Color.Info)" Variant="Variant.Filled" Size="Size.Small">
+                                    @shot.Leg leg
+                                </MudChip>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @shot.TakenAtUtc.ToLocalTime().ToString("ddd, dd MMM yyyy HH:mm")
+                                </MudText>
+                            </MudStack>
+
+                            <MudButton
+                                Variant="Variant.Outlined"
+                                Color="Color.Primary"
+                                Size="Size.Small"
+                                StartIcon="@Icons.Material.Filled.Edit"
+                                Disabled="_updateShotLoading"
+                                OnClick="@(() => BeginEdit(shot))">
+                                Edit
+                            </MudButton>
                         </MudStack>
 
                         @if (!string.IsNullOrWhiteSpace(shot.Comment))
                         {
                             <MudDivider Class="my-2" />
                             <MudText Typo="Typo.body2">@shot.Comment</MudText>
+                        }
+
+                        @if (_editingShotId == shot.Id)
+                        {
+                            <MudPaper Class="pa-3 mt-3" Outlined="true">
+                                <MudText Typo="Typo.subtitle2" Class="mb-2">Update shot</MudText>
+
+                                <MudGrid>
+                                    <MudItem xs="12" sm="6">
+                                        <MudTextField
+                                            T="string"
+                                            Label="Taken at (local)"
+                                            @bind-Value="_editShot.TakenAtLocal"
+                                            InputType="InputType.DateTimeLocal"
+                                            Variant="Variant.Outlined"
+                                            FullWidth="true" />
+                                    </MudItem>
+                                    <MudItem xs="12" sm="6">
+                                        <MudSelect
+                                            T="enLeg"
+                                            Label="Leg"
+                                            @bind-Value="_editShot.Leg"
+                                            Variant="Variant.Outlined"
+                                            FullWidth="true">
+                                            <MudSelectItem Value="enLeg.Left">Left</MudSelectItem>
+                                            <MudSelectItem Value="enLeg.Right">Right</MudSelectItem>
+                                        </MudSelect>
+                                    </MudItem>
+                                    <MudItem xs="12">
+                                        <MudTextField
+                                            T="string"
+                                            Label="Comment"
+                                            @bind-Value="_editShot.Comment"
+                                            Variant="Variant.Outlined"
+                                            FullWidth="true" />
+                                    </MudItem>
+                                </MudGrid>
+
+                                @if (!string.IsNullOrWhiteSpace(_updateShotError))
+                                {
+                                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">
+                                        @_updateShotError
+                                    </MudAlert>
+                                }
+
+                                <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="1" Wrap="Wrap.Wrap" Class="mt-3">
+                                    <MudButton Variant="Variant.Text" Disabled="_updateShotLoading" OnClick="CancelEdit">
+                                        Cancel
+                                    </MudButton>
+                                    <MudButton
+                                        Variant="Variant.Filled"
+                                        Color="Color.Primary"
+                                        Disabled="_updateShotLoading"
+                                        StartIcon="@Icons.Material.Filled.Save"
+                                        OnClick="SaveEditAsync">
+                                        @(_updateShotLoading ? "Saving..." : "Save")
+                                    </MudButton>
+                                </MudStack>
+                            </MudPaper>
                         }
                     </MudPaper>
                 }
@@ -119,13 +194,17 @@
     private bool _loading = true;
     private bool _isLoggedIn;
     private bool _getShotLoading;
+    private bool _updateShotLoading;
     private int _pageNumber = 1;
     private int _pageSize = DefaultPageSize;
+    private Guid? _editingShotId;
 
     private PagedResponse<ShotItemDto> _pageResponse =
         new(Array.Empty<ShotItemDto>(), new PaginationMetadata(1, DefaultPageSize, 0, 0));
 
     private string? _getShotsError;
+    private string? _updateShotError;
+    private EditShotModel _editShot = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -153,6 +232,8 @@
                 _pageNumber = 1;
                 _pageResponse = new(Array.Empty<ShotItemDto>(), new PaginationMetadata(1, _pageSize, 0, 0));
                 _getShotsError = null;
+                _editingShotId = null;
+                _updateShotError = null;
             }
 
             StateHasChanged();
@@ -166,7 +247,7 @@
 
     private async Task OnPageChangedAsync(int page)
     {
-        if (page < 1 || page == _pageNumber || _getShotLoading)
+        if (page < 1 || page == _pageNumber || _getShotLoading || _updateShotLoading)
             return;
 
         await GetAllShotsAsync(page);
@@ -174,7 +255,7 @@
 
     private async Task OnPageSizeChangedAsync(int pageSize)
     {
-        if (pageSize == _pageSize || _getShotLoading)
+        if (pageSize == _pageSize || _getShotLoading || _updateShotLoading)
             return;
 
         _pageSize = pageSize;
@@ -191,16 +272,119 @@
             var getShots = await ShotsService.GetAllShotsAsync(page, _pageSize);
             _pageResponse = getShots;
             _pageNumber = getShots.Pagination.PageNumber;
+            if (_editingShotId.HasValue && !_pageResponse.Items.Any(x => x.Id == _editingShotId.Value))
+                _editingShotId = null;
         }
         catch (Exception ex)
         {
             _getShotsError = ex.Message;
             _pageResponse = new(Array.Empty<ShotItemDto>(), new PaginationMetadata(1, _pageSize, 0, 0));
             _pageNumber = 1;
+            _editingShotId = null;
         }
         finally
         {
             _getShotLoading = false;
         }
+    }
+
+    private void BeginEdit(ShotItemDto shot)
+    {
+        _editingShotId = shot.Id;
+        _updateShotError = null;
+        _editShot = new EditShotModel
+        {
+            TakenAtLocal = shot.TakenAtUtc.ToLocalTime().ToString("yyyy-MM-ddTHH:mm"),
+            Leg = shot.Leg,
+            Comment = shot.Comment
+        };
+    }
+
+    private void CancelEdit()
+    {
+        if (_updateShotLoading)
+            return;
+
+        _editingShotId = null;
+        _updateShotError = null;
+    }
+
+    private async Task SaveEditAsync()
+    {
+        if (_editingShotId is null)
+            return;
+
+        if (!DateTime.TryParse(_editShot.TakenAtLocal, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out var parsedLocal))
+        {
+            _updateShotError = "Please enter a valid date and time.";
+            return;
+        }
+
+        _updateShotLoading = true;
+        _updateShotError = null;
+
+        try
+        {
+            var token = await Auth.GetAccessTokenAsync();
+            if (string.IsNullOrWhiteSpace(token))
+                throw new InvalidOperationException("Not logged in.");
+
+            var request = new UpdateShotRequest(
+                DateTime.SpecifyKind(parsedLocal, DateTimeKind.Local).ToUniversalTime(),
+                _editShot.Leg,
+                string.IsNullOrWhiteSpace(_editShot.Comment) ? null : _editShot.Comment.Trim());
+
+            using var message = new HttpRequestMessage(HttpMethod.Put, $"api/shots/{_editingShotId.Value}")
+            {
+                Content = JsonContent.Create(request)
+            };
+            message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            using var response = await Http.SendAsync(message);
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    await Auth.LogoutAsync();
+                    Nav.NavigateTo("/");
+                    return;
+                }
+
+                var details = await SafeReadResponseAsync(response);
+                throw new InvalidOperationException(string.IsNullOrWhiteSpace(details)
+                    ? "Update shot failed."
+                    : details);
+            }
+
+            _editingShotId = null;
+            await GetAllShotsAsync(_pageNumber);
+        }
+        catch (Exception ex)
+        {
+            _updateShotError = ex.Message;
+        }
+        finally
+        {
+            _updateShotLoading = false;
+        }
+    }
+
+    private static async Task<string?> SafeReadResponseAsync(HttpResponseMessage response)
+    {
+        try
+        {
+            return await response.Content.ReadAsStringAsync();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private sealed class EditShotModel
+    {
+        public string TakenAtLocal { get; set; } = string.Empty;
+        public enLeg Leg { get; set; } = enLeg.Left;
+        public string? Comment { get; set; }
     }
 }
