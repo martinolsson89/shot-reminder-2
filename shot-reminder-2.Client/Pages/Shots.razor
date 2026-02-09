@@ -1,5 +1,4 @@
 @page "/shots"
-@inject HttpClient Http
 @inject shot_reminder_2.Client.Services.AuthService Auth
 @inject shot_reminder_2.Client.Services.ShotsService ShotsService
 @inject NavigationManager Nav
@@ -8,8 +7,6 @@
 @using shot_reminder_2.Contracts.Common
 @using shot_reminder_2.Contracts.Shots
 @using System.Globalization
-@using System.Net.Http.Headers
-@using System.Net.Http.Json
 
 <PageTitle>Shots</PageTitle>
 
@@ -89,15 +86,26 @@
                                 </MudText>
                             </MudStack>
 
-                            <MudButton
-                                Variant="Variant.Outlined"
-                                Color="Color.Primary"
-                                Size="Size.Small"
-                                StartIcon="@Icons.Material.Filled.Edit"
-                                Disabled="_updateShotLoading"
-                                OnClick="@(() => BeginEdit(shot))">
-                                Edit
-                            </MudButton>
+                            <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
+                                <MudButton
+                                    Variant="Variant.Outlined"
+                                    Color="Color.Primary"
+                                    Size="Size.Small"
+                                    StartIcon="@Icons.Material.Filled.Edit"
+                                    Disabled="_updateShotLoading || _deleteShotLoading"
+                                    OnClick="@(() => BeginEdit(shot))">
+                                    Edit
+                                </MudButton>
+                                <MudButton
+                                    Variant="Variant.Outlined"
+                                    Color="Color.Error"
+                                    Size="Size.Small"
+                                    StartIcon="@Icons.Material.Filled.Delete"
+                                    Disabled="_updateShotLoading || _deleteShotLoading"
+                                    OnClick="@(() => BeginDeleteConfirm(shot.Id))">
+                                    Delete
+                                </MudButton>
+                            </MudStack>
                         </MudStack>
 
                         @if (!string.IsNullOrWhiteSpace(shot.Comment))
@@ -164,6 +172,37 @@
                                 </MudStack>
                             </MudPaper>
                         }
+
+                        @if (_deleteConfirmShotId == shot.Id)
+                        {
+                            <MudPaper Class="pa-3 mt-3" Outlined="true">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Error">Delete this shot?</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    This action cannot be undone.
+                                </MudText>
+
+                                @if (!string.IsNullOrWhiteSpace(_deleteShotError))
+                                {
+                                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">
+                                        @_deleteShotError
+                                    </MudAlert>
+                                }
+
+                                <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="1" Wrap="Wrap.Wrap" Class="mt-3">
+                                    <MudButton Variant="Variant.Text" Disabled="_deleteShotLoading" OnClick="CancelDeleteConfirm">
+                                        Cancel
+                                    </MudButton>
+                                    <MudButton
+                                        Variant="Variant.Filled"
+                                        Color="Color.Error"
+                                        Disabled="_deleteShotLoading"
+                                        StartIcon="@Icons.Material.Filled.Delete"
+                                        OnClick="@(() => DeleteShotAsync(shot.Id))">
+                                        @(_deleteShotLoading ? "Deleting..." : "Delete")
+                                    </MudButton>
+                                </MudStack>
+                            </MudPaper>
+                        }
                     </MudPaper>
                 }
             </MudStack>
@@ -195,15 +234,18 @@
     private bool _isLoggedIn;
     private bool _getShotLoading;
     private bool _updateShotLoading;
+    private bool _deleteShotLoading;
     private int _pageNumber = 1;
     private int _pageSize = DefaultPageSize;
     private Guid? _editingShotId;
+    private Guid? _deleteConfirmShotId;
 
     private PagedResponse<ShotItemDto> _pageResponse =
         new(Array.Empty<ShotItemDto>(), new PaginationMetadata(1, DefaultPageSize, 0, 0));
 
     private string? _getShotsError;
     private string? _updateShotError;
+    private string? _deleteShotError;
     private EditShotModel _editShot = new();
 
     protected override async Task OnInitializedAsync()
@@ -234,6 +276,8 @@
                 _getShotsError = null;
                 _editingShotId = null;
                 _updateShotError = null;
+                _deleteConfirmShotId = null;
+                _deleteShotError = null;
             }
 
             StateHasChanged();
@@ -247,7 +291,7 @@
 
     private async Task OnPageChangedAsync(int page)
     {
-        if (page < 1 || page == _pageNumber || _getShotLoading || _updateShotLoading)
+        if (page < 1 || page == _pageNumber || _getShotLoading || _updateShotLoading || _deleteShotLoading)
             return;
 
         await GetAllShotsAsync(page);
@@ -255,7 +299,7 @@
 
     private async Task OnPageSizeChangedAsync(int pageSize)
     {
-        if (pageSize == _pageSize || _getShotLoading || _updateShotLoading)
+        if (pageSize == _pageSize || _getShotLoading || _updateShotLoading || _deleteShotLoading)
             return;
 
         _pageSize = pageSize;
@@ -274,6 +318,8 @@
             _pageNumber = getShots.Pagination.PageNumber;
             if (_editingShotId.HasValue && !_pageResponse.Items.Any(x => x.Id == _editingShotId.Value))
                 _editingShotId = null;
+            if (_deleteConfirmShotId.HasValue && !_pageResponse.Items.Any(x => x.Id == _deleteConfirmShotId.Value))
+                _deleteConfirmShotId = null;
         }
         catch (Exception ex)
         {
@@ -281,6 +327,7 @@
             _pageResponse = new(Array.Empty<ShotItemDto>(), new PaginationMetadata(1, _pageSize, 0, 0));
             _pageNumber = 1;
             _editingShotId = null;
+            _deleteConfirmShotId = null;
         }
         finally
         {
@@ -290,6 +337,8 @@
 
     private void BeginEdit(ShotItemDto shot)
     {
+        _deleteConfirmShotId = null;
+        _deleteShotError = null;
         _editingShotId = shot.Id;
         _updateShotError = null;
         _editShot = new EditShotModel
@@ -302,11 +351,28 @@
 
     private void CancelEdit()
     {
-        if (_updateShotLoading)
+        if (_updateShotLoading || _deleteShotLoading)
             return;
 
         _editingShotId = null;
         _updateShotError = null;
+    }
+
+    private void BeginDeleteConfirm(Guid shotId)
+    {
+        _editingShotId = null;
+        _updateShotError = null;
+        _deleteShotError = null;
+        _deleteConfirmShotId = shotId;
+    }
+
+    private void CancelDeleteConfirm()
+    {
+        if (_deleteShotLoading)
+            return;
+
+        _deleteConfirmShotId = null;
+        _deleteShotError = null;
     }
 
     private async Task SaveEditAsync()
@@ -325,36 +391,12 @@
 
         try
         {
-            var token = await Auth.GetAccessTokenAsync();
-            if (string.IsNullOrWhiteSpace(token))
-                throw new InvalidOperationException("Not logged in.");
-
             var request = new UpdateShotRequest(
                 DateTime.SpecifyKind(parsedLocal, DateTimeKind.Local).ToUniversalTime(),
                 _editShot.Leg,
                 string.IsNullOrWhiteSpace(_editShot.Comment) ? null : _editShot.Comment.Trim());
 
-            using var message = new HttpRequestMessage(HttpMethod.Put, $"api/shots/{_editingShotId.Value}")
-            {
-                Content = JsonContent.Create(request)
-            };
-            message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-            using var response = await Http.SendAsync(message);
-            if (!response.IsSuccessStatusCode)
-            {
-                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                {
-                    await Auth.LogoutAsync();
-                    Nav.NavigateTo("/");
-                    return;
-                }
-
-                var details = await SafeReadResponseAsync(response);
-                throw new InvalidOperationException(string.IsNullOrWhiteSpace(details)
-                    ? "Update shot failed."
-                    : details);
-            }
+            await ShotsService.UpdateShotAsync(_editingShotId.Value, request);
 
             _editingShotId = null;
             await GetAllShotsAsync(_pageNumber);
@@ -369,15 +411,32 @@
         }
     }
 
-    private static async Task<string?> SafeReadResponseAsync(HttpResponseMessage response)
+    private async Task DeleteShotAsync(Guid shotId)
     {
+        if (_deleteShotLoading)
+            return;
+
+        _deleteShotLoading = true;
+        _deleteShotError = null;
+
         try
         {
-            return await response.Content.ReadAsStringAsync();
+            await ShotsService.DeleteShotAsync(shotId);
+
+            _deleteConfirmShotId = null;
+            await GetAllShotsAsync(_pageNumber);
+
+            var maxPage = Math.Max(_pageResponse.Pagination.TotalPageCount, 1);
+            if (_pageNumber > maxPage)
+                await GetAllShotsAsync(maxPage);
         }
-        catch
+        catch (Exception ex)
         {
-            return null;
+            _deleteShotError = ex.Message;
+        }
+        finally
+        {
+            _deleteShotLoading = false;
         }
     }
 

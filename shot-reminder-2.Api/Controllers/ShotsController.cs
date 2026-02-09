@@ -75,7 +75,7 @@ public class ShotsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> DeleteShot(Guid id, CancellationToken ct)
+    public async Task<IActionResult> DeleteShot([FromRoute] Guid id, CancellationToken ct)
     {
         var userId = User.GetUserId();
 

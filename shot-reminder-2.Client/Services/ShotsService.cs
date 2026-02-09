@@ -87,6 +87,47 @@ public sealed class ShotsService(HttpClient http, AuthService auth)
         return result ?? throw new InvalidOperationException("Server returned an empty response.");
     }
 
+    public async Task UpdateShotAsync(Guid id, UpdateShotRequest request, CancellationToken ct = default)
+    {
+        var token = await auth.GetAccessTokenAsync(ct);
+        if (string.IsNullOrWhiteSpace(token))
+            throw new InvalidOperationException("Not logged in.");
+
+        using var message = new HttpRequestMessage(HttpMethod.Put, $"api/shots/{id}")
+        {
+            Content = JsonContent.Create(request)
+        };
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await http.SendAsync(message, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                await auth.LogoutAsync(ct);
+
+            throw await CreateApiExceptionAsync(response, "Update shot failed", ct);
+        }
+    }
+
+    public async Task DeleteShotAsync(Guid id, CancellationToken ct = default)
+    {
+        var token = await auth.GetAccessTokenAsync(ct);
+        if (string.IsNullOrWhiteSpace(token))
+            throw new InvalidOperationException("Not logged in.");
+
+        using var message = new HttpRequestMessage(HttpMethod.Delete, $"api/shots/{id}");
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await http.SendAsync(message, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                await auth.LogoutAsync(ct);
+
+            throw await CreateApiExceptionAsync(response, "Delete shot failed", ct);
+        }
+    }
+
     private static async Task<Exception> CreateApiExceptionAsync(HttpResponseMessage response, string operation, CancellationToken ct)
     {
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
