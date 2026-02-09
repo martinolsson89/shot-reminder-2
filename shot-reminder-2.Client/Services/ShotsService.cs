@@ -7,6 +7,32 @@ namespace shot_reminder_2.Client.Services;
 
 public sealed class ShotsService(HttpClient http, AuthService auth)
 {
+    public async Task<RegisterShotResponse> AddShotAsync(UpdateShotRequest request, CancellationToken ct = default)
+    {
+        var token = await auth.GetAccessTokenAsync(ct);
+        if (string.IsNullOrWhiteSpace(token))
+            throw new InvalidOperationException("Not logged in.");
+
+        using var message = new HttpRequestMessage(HttpMethod.Post, "api/shots/addshot")
+        {
+            Content = JsonContent.Create(request)
+        };
+
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await http.SendAsync(message, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                await auth.LogoutAsync(ct);
+
+            throw await CreateApiExceptionAsync(response, "Add shot failed", ct);
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<RegisterShotResponse>(cancellationToken: ct);
+        return result ?? throw new InvalidOperationException("Server returned an empty response.");
+    }
+
     public async Task<RegisterShotResponse> RegisterShotAsync(RegisterShotRequest request, CancellationToken ct = default)
     {
         var token = await auth.GetAccessTokenAsync(ct);

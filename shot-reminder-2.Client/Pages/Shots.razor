@@ -47,6 +47,72 @@
             </MudStack>
         </MudPaper>
 
+        <MudPaper Class="pa-4 mb-4" Elevation="2">
+            <MudText Typo="Typo.h6" Class="mb-3">Add shot</MudText>
+
+            @if (!string.IsNullOrWhiteSpace(_addShotSuccess))
+            {
+                <MudAlert Severity="Severity.Success" Dense="true" Variant="Variant.Filled" Class="mb-3">
+                    @_addShotSuccess
+                </MudAlert>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(_addShotError))
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Filled" Class="mb-3">
+                    @_addShotError
+                </MudAlert>
+            }
+
+            <MudGrid>
+                <MudItem xs="12" sm="4">
+                    <MudTextField
+                        T="string"
+                        Label="Taken at (local)"
+                        @bind-Value="_addShot.TakenAtLocal"
+                        InputType="InputType.DateTimeLocal"
+                        Variant="Variant.Outlined"
+                        FullWidth="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudSelect
+                        T="enLeg"
+                        Label="Leg"
+                        @bind-Value="_addShot.Leg"
+                        Variant="Variant.Outlined"
+                        FullWidth="true">
+                        <MudSelectItem Value="enLeg.Left">Left</MudSelectItem>
+                        <MudSelectItem Value="enLeg.Right">Right</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField
+                        T="string"
+                        Label="Comment"
+                        @bind-Value="_addShot.Comment"
+                        Variant="Variant.Outlined"
+                        FullWidth="true" />
+                </MudItem>
+            </MudGrid>
+
+            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="1" Wrap="Wrap.Wrap" Class="mt-3">
+                <MudButton
+                    Variant="Variant.Text"
+                    Disabled="_addShotLoading || _getShotLoading || _updateShotLoading || _deleteShotLoading"
+                    OnClick="ResetAddShotForm">
+                    Reset
+                </MudButton>
+                <MudButton
+                    Variant="Variant.Filled"
+                    Color="Color.Primary"
+                    Disabled="_addShotLoading || _getShotLoading || _updateShotLoading || _deleteShotLoading"
+                    StartIcon="@Icons.Material.Filled.Add"
+                    OnClick="AddShotAsync">
+                    @(_addShotLoading ? "Adding..." : "Add shot")
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+
         @if (!string.IsNullOrWhiteSpace(_getShotsError))
         {
             <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Filled" Class="mb-4">
@@ -92,7 +158,7 @@
                                     Color="Color.Primary"
                                     Size="Size.Small"
                                     StartIcon="@Icons.Material.Filled.Edit"
-                                    Disabled="_updateShotLoading || _deleteShotLoading"
+                                    Disabled="_addShotLoading || _updateShotLoading || _deleteShotLoading"
                                     OnClick="@(() => BeginEdit(shot))">
                                     Edit
                                 </MudButton>
@@ -101,7 +167,7 @@
                                     Color="Color.Error"
                                     Size="Size.Small"
                                     StartIcon="@Icons.Material.Filled.Delete"
-                                    Disabled="_updateShotLoading || _deleteShotLoading"
+                                    Disabled="_addShotLoading || _updateShotLoading || _deleteShotLoading"
                                     OnClick="@(() => BeginDeleteConfirm(shot.Id))">
                                     Delete
                                 </MudButton>
@@ -233,6 +299,7 @@
     private bool _loading = true;
     private bool _isLoggedIn;
     private bool _getShotLoading;
+    private bool _addShotLoading;
     private bool _updateShotLoading;
     private bool _deleteShotLoading;
     private int _pageNumber = 1;
@@ -244,8 +311,11 @@
         new(Array.Empty<ShotItemDto>(), new PaginationMetadata(1, DefaultPageSize, 0, 0));
 
     private string? _getShotsError;
+    private string? _addShotError;
+    private string? _addShotSuccess;
     private string? _updateShotError;
     private string? _deleteShotError;
+    private AddShotModel _addShot = new();
     private EditShotModel _editShot = new();
 
     protected override async Task OnInitializedAsync()
@@ -274,6 +344,9 @@
                 _pageNumber = 1;
                 _pageResponse = new(Array.Empty<ShotItemDto>(), new PaginationMetadata(1, _pageSize, 0, 0));
                 _getShotsError = null;
+                _addShotError = null;
+                _addShotSuccess = null;
+                _addShot = new();
                 _editingShotId = null;
                 _updateShotError = null;
                 _deleteConfirmShotId = null;
@@ -291,7 +364,7 @@
 
     private async Task OnPageChangedAsync(int page)
     {
-        if (page < 1 || page == _pageNumber || _getShotLoading || _updateShotLoading || _deleteShotLoading)
+        if (page < 1 || page == _pageNumber || _getShotLoading || _addShotLoading || _updateShotLoading || _deleteShotLoading)
             return;
 
         await GetAllShotsAsync(page);
@@ -299,11 +372,60 @@
 
     private async Task OnPageSizeChangedAsync(int pageSize)
     {
-        if (pageSize == _pageSize || _getShotLoading || _updateShotLoading || _deleteShotLoading)
+        if (pageSize == _pageSize || _getShotLoading || _addShotLoading || _updateShotLoading || _deleteShotLoading)
             return;
 
         _pageSize = pageSize;
         await GetAllShotsAsync(1);
+    }
+
+    private async Task AddShotAsync()
+    {
+        if (_addShotLoading || _getShotLoading || _updateShotLoading || _deleteShotLoading)
+            return;
+
+        _addShotError = null;
+        _addShotSuccess = null;
+
+        if (!DateTime.TryParse(_addShot.TakenAtLocal, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out var parsedLocal))
+        {
+            _addShotError = "Please enter a valid date and time.";
+            return;
+        }
+
+        _addShotLoading = true;
+
+        try
+        {
+            var request = new UpdateShotRequest(
+                DateTime.SpecifyKind(parsedLocal, DateTimeKind.Local).ToUniversalTime(),
+                _addShot.Leg,
+                string.IsNullOrWhiteSpace(_addShot.Comment) ? null : _addShot.Comment.Trim());
+
+            await ShotsService.AddShotAsync(request);
+
+            _addShotSuccess = "Shot added.";
+            _addShot = new AddShotModel { Leg = _addShot.Leg };
+            await GetAllShotsAsync(1);
+        }
+        catch (Exception ex)
+        {
+            _addShotError = ex.Message;
+        }
+        finally
+        {
+            _addShotLoading = false;
+        }
+    }
+
+    private void ResetAddShotForm()
+    {
+        if (_addShotLoading || _getShotLoading || _updateShotLoading || _deleteShotLoading)
+            return;
+
+        _addShotError = null;
+        _addShotSuccess = null;
+        _addShot = new();
     }
 
     private async Task GetAllShotsAsync(int page)
@@ -443,6 +565,13 @@
     private sealed class EditShotModel
     {
         public string TakenAtLocal { get; set; } = string.Empty;
+        public enLeg Leg { get; set; } = enLeg.Left;
+        public string? Comment { get; set; }
+    }
+
+    private sealed class AddShotModel
+    {
+        public string TakenAtLocal { get; set; } = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
         public enLeg Leg { get; set; } = enLeg.Left;
         public string? Comment { get; set; }
     }
