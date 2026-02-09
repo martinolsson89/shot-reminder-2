@@ -56,6 +56,23 @@ public class ShotsController : ControllerBase
         return Created(nameof(RegisterShot), response);
     }
 
+    [HttpPost("addshot")]
+    public async Task<IActionResult> AddShot([FromBody] UpdateShotRequest request, CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+
+        var registerShotResult = await _shotHandler.HandleAsync(
+            new RegisterShotCommand(
+                userId: userId,
+                TakenAtUtc: request.TakenAtUtc,
+                Leg: request.Leg,
+                Comment: request.Comment),
+            ct);
+
+        var response = new RegisterShotResponse(registerShotResult.id);
+        return Created(nameof(AddShot), response);
+    }
+
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateShot(Guid id, [FromBody] UpdateShotRequest request, CancellationToken ct)
     {
