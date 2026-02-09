@@ -126,11 +126,13 @@
                     else
                     {
                         <MudText Color="Color.Secondary" Style="font-weight: 600">
-                            Due: @(_latestShot is null ? "-" : DueLabelUntil(CalculateUpcomingShot(_latestShot.TakenAtUtc)))
+                            Due @(_latestShot is null ? "-" : DueLabelUntil(CalculateUpcomingShot(_latestShot.TakenAtUtc)))
                         </MudText>
                         <MudStack Spacing="1" AlignItems="AlignItems.Center">
-                            <MudText><strong>Leg:</strong> @(_latestShot.Leg == enLeg.Left ? enLeg.Right : enLeg.Left)</MudText>
-                            <MudText><strong>When:</strong> @CalculateUpcomingShot(_latestShot.TakenAtUtc).ToLocalTime().ToString("yyyy-MM-dd HH:mm")</MudText>
+                            <MudText>@CalculateUpcomingShot(_latestShot.TakenAtUtc).ToLocalTime().ToString("ddd, dd MMM yyyy")</MudText>
+                            <MudChip T="string" Color="@(_latestShot.Leg == enLeg.Left ? Color.Info : Color.Tertiary)" Variant="Variant.Filled" Size="Size.Small">
+                                @(_latestShot.Leg == enLeg.Left ? enLeg.Right : enLeg.Left) leg
+                            </MudChip>
                         </MudStack>
                     }
                 </MudPaper>
@@ -154,11 +156,13 @@
                     else
                     {
                         <MudStack Spacing="1" AlignItems="AlignItems.Center">
-                            <MudText><strong>Leg:</strong> @_latestShot.Leg</MudText>
-                            <MudText><strong>When:</strong> @_latestShot.TakenAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</MudText>
+                            <MudText>@_latestShot.TakenAtUtc.ToLocalTime().ToString("ddd, dd MMM yyyy")</MudText>
+                            <MudChip T="string" Color="@(_latestShot.Leg == enLeg.Left ? Color.Tertiary : Color.Info)" Variant="Variant.Filled" Size="Size.Small">
+                                @_latestShot.Leg leg
+                            </MudChip>
                             @if (!string.IsNullOrWhiteSpace(_latestShot.Comment))
                             {
-                                <MudText><strong>Comment:</strong> @_latestShot.Comment</MudText>
+                                <MudText><i>"@_latestShot.Comment"</i></MudText>
                             }
                         </MudStack>
                     }
@@ -381,7 +385,7 @@
         {
             0 => "Today",
             1 => "Tomorrow",
-            _ => $"{days} days"
+            _ => $"in {days} days"
         };
     }
 

@@ -87,7 +87,7 @@ public class ShotsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<PagedResponse<ShotItemDto>>> Get([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<ActionResult<PagedResponse<ShotItemDto>>> Get([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
     {
         if (page < 1)
             return BadRequest("`page` must be greater than or equal to 1.");
@@ -97,7 +97,7 @@ public class ShotsController : ControllerBase
 
         var userId = User.GetUserId();
 
-        var result = await _getShotsHandler.HandleAsync(userId);
+        var result = await _getShotsHandler.HandleAsync(userId, ct);
 
         var pagedResponse = result.Shots.ToPagedResponse(
             page,

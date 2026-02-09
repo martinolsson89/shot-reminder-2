@@ -57,14 +57,20 @@ public sealed class ShotsService(HttpClient http, AuthService auth)
         return result ?? throw new InvalidOperationException("Server returned an empty response.");
     }
 
-    public async Task<PagedResponse<ShotItemDto>> GetAllShotsAsync(CancellationToken ct = default)
+    public async Task<PagedResponse<ShotItemDto>> GetAllShotsAsync(int page = 1, int pageSize = 10, CancellationToken ct = default)
     {
+        if (page < 1)
+            throw new ArgumentOutOfRangeException(nameof(page), "Page must be >= 1.");
+
+        if (pageSize < 1 || pageSize > 100)
+            throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be between 1 and 100.");
+
         var token = await auth.GetAccessTokenAsync(ct);
 
         if (string.IsNullOrWhiteSpace(token))
             throw new InvalidOperationException("Not logged in.");
 
-        using var message = new HttpRequestMessage(HttpMethod.Get, "api/shots");
+        using var message = new HttpRequestMessage(HttpMethod.Get, $"api/shots?page={page}&pageSize={pageSize}");
 
         message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 

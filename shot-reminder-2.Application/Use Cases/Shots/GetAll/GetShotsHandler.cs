@@ -13,10 +13,10 @@ public class GetShotsHandler
         _shotRepository = shotRepository;
     }
 
-    public async Task<GetShotsResult> HandleAsync(Guid userId)
+    public async Task<GetShotsResult> HandleAsync(Guid userId, CancellationToken ct = default)
     {
 
-        var shots = await _shotRepository.GetAsync(userId);
+        var shots = await _shotRepository.GetAsync(userId, ct);
 
         var response = shots
         .Select(s => new TakenShotDto(s.Id, s.UserId, s.TakenAtUtc, s.Leg, s.Comment))
