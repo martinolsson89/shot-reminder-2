@@ -109,7 +109,7 @@
             </MudItem>
             <MudItem xs="12" sm="6">
                 <MudPaper Class="align-center justify-center mud-width-full py-8">
-                    <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight: 600">Next upcoming shot</MudText>
+                    <MudText Typo="Typo.h6" Color="Color.Tertiary" Style="font-weight: 600">Next upcoming shot</MudText>
 
                     @if (!string.IsNullOrWhiteSpace(_getLatestError))
                     {
@@ -167,18 +167,25 @@
             <MudItem xs="12">
                 <MudPaper Class="mud-width-full pa-6">
                     <div class="calendar-desktop">
-                        <MudCalendar T="CalendarItem" Items="_events" Height="600" ShowDropdownViewSelector="true" ShowPrevNextButtons="false" ToolbarPadding="4" Outlined="false" />
+                        <MudCalendar T="CustomItem" Items="_events" Height="600" ShowDropdownViewSelector="true" ShowPrevNextButtons="false" ToolbarPadding="4" Outlined="false">
+                            <CellTemplate>
+                                <div style="width: 100%; height: 100%; border: 2px solid @GetColor(context.Color)">
+                                    <div style="background-color: @GetColor(context.Color)"><MudText Style="color: #ffffff;" Typo="Typo.body1" Align="Align.Center">@(context.Title)</MudText></div>
+                                    <div class="pa-2"><MudText Typo="Typo.body2">@context.Text</MudText></div>
+                                </div>
+                            </CellTemplate>
+                        </MudCalendar>
                     </div>
                     <div class="calendar-mobile">
-                        <MudCalendar T="CalendarItem" Items="_events" Height="430" ShowDropdownViewSelector="true" ShowPrevNextButtons="false" ToolbarPadding="4" Outlined="false">
+                        <MudCalendar T="CustomItem" Items="_events" Height="430" ShowDropdownViewSelector="true" ShowPrevNextButtons="false" ToolbarPadding="4" Outlined="false">
                             <MonthTemplate>
                                 <div class="d-flex gap-1">
-                                    <MudIcon Icon="@Icons.Material.Filled.Circle" Color="Color.Primary" Size="Size.Medium" />
+                                    <MudIcon Icon="@Icons.Material.Filled.Circle" Color="context.Color" Size="Size.Medium" />
                                 </div>
                             </MonthTemplate>
                             <WeekTemplate>
                                 <div class="d-flex gap-1">
-                                    <MudIcon Icon="@Icons.Material.Filled.Circle" Color="Color.Primary" Size="Size.Small" />
+                                    <MudIcon Icon="@Icons.Material.Filled.Circle" Color="context.Color" Size="Size.Small" />
                                 </div>
                             </WeekTemplate>
                         </MudCalendar>
@@ -217,7 +224,8 @@
     private LatestShotFormModel? _latestShot;
     private string? _getLatestError;
 
-    private List<CalendarItem> _events = new();
+    private string GetColor(Color color) => $"var(--mud-palette-{color.ToDescriptionString()})";
+    private List<CustomItem> _events = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -383,19 +391,29 @@
         if (_latestShot is null)
             return;
 
-        _events.Add(new CalendarItem
+            _events.Add(new CustomItem
         {
             Start = _latestShot.TakenAtUtc,
             End = _latestShot.TakenAtUtc.AddHours(1),
-            Text = "Taken Shot"
+            Title = "Taken Shot",
+            Text = _latestShot.Comment ?? string.Empty,
+            Color = Color.Secondary
         });
 
         var dueAt = CalculateUpcomingShot(_latestShot.TakenAtUtc);
-        _events.Add(new CalendarItem
+        _events.Add(new CustomItem
         {
             Start = dueAt,
             End = dueAt.AddHours(1),
-            Text = "Next Shot"
+            Title = "Next Shot",
+            Color = Color.Tertiary
         });
+    }
+
+    private class CustomItem : CalendarItem
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
+        public Color Color { get; set; } = Color.Primary;
     }
 }
