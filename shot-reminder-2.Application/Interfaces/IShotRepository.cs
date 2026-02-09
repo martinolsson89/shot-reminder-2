@@ -11,4 +11,5 @@ public interface IShotRepository
     Task<IReadOnlyList<TakenShot>> GetAsync(Guid userId, CancellationToken ct = default);
     Task<TakenShot?> GetByIdAsync(Guid id, Guid userId, CancellationToken ct = default);
     Task<TakenShot?> GetLatestAsync(Guid userId, CancellationToken ct = default);
+    Task<bool> ExistsWithTakenAtUtcAfterAsync(Guid userId, DateTime takenAtUtc, CancellationToken ct = default);
 }

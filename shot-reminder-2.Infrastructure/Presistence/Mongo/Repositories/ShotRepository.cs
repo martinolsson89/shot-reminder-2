@@ -129,4 +129,14 @@ public sealed class ShotRepository : IShotRepository
             comment: doc.Comment
         );
     }
+
+    public async Task<bool> ExistsWithTakenAtUtcAfterAsync(Guid userId, DateTime takenAtUtc, CancellationToken ct = default)
+    {
+        var filter = Builders<TakenShotDocument>.Filter.And(
+            Builders<TakenShotDocument>.Filter.Eq(x => x.UserId, userId),
+            Builders<TakenShotDocument>.Filter.Gt(x => x.TakenAtUtc, takenAtUtc)
+        );
+
+        return await _shots.Find(filter).AnyAsync(ct);
+    }
 }

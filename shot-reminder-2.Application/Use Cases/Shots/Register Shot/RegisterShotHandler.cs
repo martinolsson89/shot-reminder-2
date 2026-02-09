@@ -77,10 +77,21 @@ public class RegisterShotHandler
             // after Mongo writes succeed
             try
             {
-                string leg = command.Leg == enLeg.Left ? enLeg.Right.ToString() : enLeg.Left.ToString();
+                var hasNewerShot = await _shotRepository.ExistsWithTakenAtUtcAfterAsync(command.userId, command.TakenAtUtc, ct);
+                if (!hasNewerShot)
+                {
+                    string leg = command.Leg == enLeg.Left ? enLeg.Right.ToString() : enLeg.Left.ToString();
+                    var nextDueAtUtc = command.TakenAtUtc.AddDays(intervalDays);
 
-                var nextDueAtUtc = command.TakenAtUtc.AddDays(intervalDays);
-                await _calendarService.UpsertNextShotEventAsync(command.userId, nextDueAtUtc, leg, ct);
+                    await _calendarService.UpsertNextShotEventAsync(command.userId, nextDueAtUtc, leg, ct);
+                }
+                else
+                {
+                    _logger.LogInformation(
+                        "Skipping calendar update for user {UserId} because a newer shot already exists than {TakenAtUtc}",
+                        command.userId,
+                        command.TakenAtUtc);
+                }
             }
             catch
             {
