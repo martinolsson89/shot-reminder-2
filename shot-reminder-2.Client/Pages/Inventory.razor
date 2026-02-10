@@ -1,9 +1,147 @@
 ﻿@page "/inventory"
 @inject HttpClient Http
+@inject shot_reminder_2.Client.Services.AuthService Auth
+@inject shot_reminder_2.Client.Services.InventoryService InventoryService
+@inject NavigationManager Nav
+@implements IDisposable
 
 <PageTitle>Inventory</PageTitle>
-<h3>Inventory</h3>
 
-@code {
+<MudContainer MaxWidth="MaxWidth.Medium" Class="py-8" Style="text-align: center;">
+    @if (_loading)
+    {
+        <MudPaper Class="pa-6">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Justify="Justify.Center">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Medium" />
+                <MudText Color="Color.Secondary">Loading shots...</MudText>
+            </MudStack>
+        </MudPaper>
+    }
+    else if (!_isLoggedIn)
+    {
+        Nav.NavigateTo("/");
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=12</MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudPaper Class="align-center justify-center mud-width-full py-8">
+                        <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight: 600">Inventory</MudText>
+
+                        @if (!string.IsNullOrWhiteSpace(_getInventoryError))
+                        {
+                            <MudAlert Severity="Severity.Error" Dense="true">@_getInventoryError</MudAlert>
+                        }
+                        else if (_inventoryLoading)
+                        {
+                            <MudText Color="Color.Secondary">Loading...</MudText>
+                        }
+                        else if (_getInventory is null)
+                        {
+                            <MudText Color="Color.Secondary">No inventory is found.</MudText>
+                        }
+                        else
+                        {
+                            <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                                <MudText>@_getInventory.UpdatedAtUtc.ToLocalTime().ToString("ddd, dd MMM yyyy")</MudText>
+                                <MudText>@_getInventory.ShotsLeft shots left</MudText>
+                            </MudStack>
+                        }
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=12 sm=6</MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
+            </MudItem>
+        </MudGrid>
+
+    }
+</MudContainer>
+
+@code 
+    {
+    private bool _loading = true;
+    private bool _isLoggedIn;
+
+    private string? _getInventoryError;
+    private bool _inventoryLoading;
+    private GetInventoryResponse? _getInventory;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.AuthStateChanged += OnAuthStateChanged;
+        _isLoggedIn = await Auth.IsLoggedInAsync();
+
+        if (_isLoggedIn)
+            await GetInventoryAsync();
+
+        _loading = false;
+    }
+
+    private void OnAuthStateChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            _isLoggedIn = await Auth.IsLoggedInAsync();
+
+            if (_isLoggedIn)
+            {
+                await GetInventoryAsync();
+            }
+            else
+            {
+                
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        Auth.AuthStateChanged -= OnAuthStateChanged;
+    }
+
+    private class GetInventoryResponse
+    {
+        public Guid UserId { get; set; }
+        public int ShotsLeft { get; set; }
+        public DateTime UpdatedAtUtc { get; set; }
+    }
+
+    private async Task GetInventoryAsync()
+    {
+        _getInventoryError = null;
+        _inventoryLoading = true;
+
+        try
+        {
+            var inventory = await InventoryService.GetInventoryAsync();
+            _getInventory = new GetInventoryResponse { UserId = inventory.UserId, ShotsLeft = inventory.ShotsLeft, UpdatedAtUtc = inventory.UpdatedAtUtc };
+        }
+        catch (Exception ex)
+        {
+            _getInventoryError = ex.Message;
+            _getInventory = null;
+        }
+        finally
+        {
+            _inventoryLoading = false;
+        }
+    }
 
 }

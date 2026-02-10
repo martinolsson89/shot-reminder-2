@@ -18,6 +18,7 @@ if (string.IsNullOrWhiteSpace(apiBaseUrl))
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(apiBaseUrl) });
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ShotsService>();
+builder.Services.AddScoped<InventoryService>();
 
 
 await builder.Build().RunAsync();

@@ -101,6 +101,6 @@ public class InventoryController : ControllerBase
         {
             return NotFound();
         }
-        return Ok(res);
+        return Ok(new GetInventoryResponse(UserId: res.UserId, ShotsLeft: res.ShotsLeft,UpdatedAtUtc: res.UpdatedAtUtc));
     }
 }
