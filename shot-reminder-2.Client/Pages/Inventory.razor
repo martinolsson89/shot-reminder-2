@@ -96,7 +96,7 @@
                     <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-3">
                         <MudButton Variant="Variant.Filled"
                                    Color="Color.Primary"
-                                   Disabled="_restockLoading || _addStockLoading || _inventoryLoading"
+                                   Disabled="@IsBusy"
                                    StartIcon="@Icons.Material.Filled.AddCircle"
                                    OnClick="RestockAsync">
                             @(_restockLoading ? "Restocking..." : "Restock")
@@ -136,12 +136,112 @@
                     <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-3">
                         <MudButton Variant="Variant.Outlined"
                                    Color="Color.Secondary"
-                                   Disabled="_addStockLoading || _restockLoading || _inventoryLoading"
+                                   Disabled="@IsBusy"
                                    StartIcon="@Icons.Material.Filled.Inventory2"
                                    OnClick="AddStockAsync">
                             @(_addStockLoading ? "Adding..." : "Add stock")
                         </MudButton>
                     </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-4" Outlined="true">
+                    <MudText Typo="Typo.subtitle1" Class="mb-1">Update total</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                        Set the exact number of shots left.
+                    </MudText>
+
+                    @if (!string.IsNullOrWhiteSpace(_updateSuccess))
+                    {
+                        <MudAlert Severity="Severity.Success" Dense="true" Variant="Variant.Outlined" Class="mb-3">
+                            @_updateSuccess
+                        </MudAlert>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_updateError))
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Outlined" Class="mb-3">
+                            @_updateError
+                        </MudAlert>
+                    }
+
+                    <MudNumericField T="int?"
+                                     Label="New total shots"
+                                     @bind-Value="_updateTotalShots"
+                                     Min="0"
+                                     Variant="Variant.Outlined"
+                                     FullWidth="true" />
+
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-3">
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   Disabled="@IsBusy"
+                                   StartIcon="@Icons.Material.Filled.Save"
+                                   OnClick="UpdateInventoryAsync">
+                            @(_updateLoading ? "Updating..." : "Update total")
+                        </MudButton>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-4" Outlined="true">
+                    <MudText Typo="Typo.subtitle1" Color="Color.Error" Class="mb-1">Delete inventory</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                        Remove your inventory record.
+                    </MudText>
+
+                    @if (!string.IsNullOrWhiteSpace(_deleteSuccess))
+                    {
+                        <MudAlert Severity="Severity.Success" Dense="true" Variant="Variant.Outlined" Class="mb-3">
+                            @_deleteSuccess
+                        </MudAlert>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_deleteError))
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Outlined" Class="mb-3">
+                            @_deleteError
+                        </MudAlert>
+                    }
+
+                    @if (!_showDeleteConfirm)
+                    {
+                        <MudStack Row="true" Justify="Justify.FlexEnd">
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Error"
+                                       Disabled="@IsBusy"
+                                       StartIcon="@Icons.Material.Filled.Delete"
+                                       OnClick="BeginDeleteConfirm">
+                                Delete inventory
+                            </MudButton>
+                        </MudStack>
+                    }
+                    else
+                    {
+                        <MudPaper Class="pa-3" Outlined="true">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Error">Delete inventory?</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                This action cannot be undone.
+                            </MudText>
+
+                            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="1" Class="mt-3">
+                                <MudButton Variant="Variant.Text"
+                                           Disabled="_deleteLoading"
+                                           OnClick="CancelDeleteConfirm">
+                                    Cancel
+                                </MudButton>
+                                <MudButton Variant="Variant.Filled"
+                                           Color="Color.Error"
+                                           Disabled="_deleteLoading"
+                                           StartIcon="@Icons.Material.Filled.Delete"
+                                           OnClick="DeleteInventoryAsync">
+                                    @(_deleteLoading ? "Deleting..." : "Delete inventory")
+                                </MudButton>
+                            </MudStack>
+                        </MudPaper>
+                    }
                 </MudPaper>
             </MudItem>
         </MudGrid>
@@ -166,6 +266,18 @@
     private bool _addStockLoading;
     private string? _addStockError;
     private string? _addStockSuccess;
+
+    private int? _updateTotalShots;
+    private bool _updateLoading;
+    private string? _updateError;
+    private string? _updateSuccess;
+
+    private bool _showDeleteConfirm;
+    private bool _deleteLoading;
+    private string? _deleteError;
+    private string? _deleteSuccess;
+
+    private bool IsBusy => _inventoryLoading || _restockLoading || _addStockLoading || _updateLoading || _deleteLoading;
 
     protected override async Task OnInitializedAsync()
     {
@@ -198,6 +310,12 @@
                 _addStockShots = 1;
                 _addStockError = null;
                 _addStockSuccess = null;
+                _updateTotalShots = null;
+                _updateError = null;
+                _updateSuccess = null;
+                _showDeleteConfirm = false;
+                _deleteError = null;
+                _deleteSuccess = null;
             }
 
             StateHasChanged();
@@ -217,11 +335,13 @@
         try
         {
             _getInventory = await InventoryService.GetInventoryAsync();
+            _updateTotalShots = _getInventory?.ShotsLeft;
         }
         catch (Exception ex)
         {
             _getInventoryError = ex.Message;
             _getInventory = null;
+            _updateTotalShots = null;
         }
         finally
         {
@@ -229,15 +349,24 @@
         }
     }
 
-    private async Task RestockAsync()
+    private void ClearActionMessages()
     {
-        if (_restockLoading || _addStockLoading || _inventoryLoading)
-            return;
-
         _restockError = null;
         _restockSuccess = null;
         _addStockError = null;
         _addStockSuccess = null;
+        _updateError = null;
+        _updateSuccess = null;
+        _deleteError = null;
+        _deleteSuccess = null;
+    }
+
+    private async Task RestockAsync()
+    {
+        if (IsBusy)
+            return;
+
+        ClearActionMessages();
 
         if (!_restockShots.HasValue || _restockShots.Value <= 0)
         {
@@ -266,13 +395,10 @@
 
     private async Task AddStockAsync()
     {
-        if (_addStockLoading || _restockLoading || _inventoryLoading)
+        if (IsBusy)
             return;
 
-        _addStockError = null;
-        _addStockSuccess = null;
-        _restockError = null;
-        _restockSuccess = null;
+        ClearActionMessages();
 
         if (!_addStockShots.HasValue || _addStockShots.Value <= 0)
         {
@@ -296,6 +422,81 @@
         finally
         {
             _addStockLoading = false;
+        }
+    }
+
+    private async Task UpdateInventoryAsync()
+    {
+        if (IsBusy)
+            return;
+
+        ClearActionMessages();
+
+        if (!_updateTotalShots.HasValue || _updateTotalShots.Value < 0)
+        {
+            _updateError = "New total must be 0 or greater.";
+            return;
+        }
+
+        _updateLoading = true;
+
+        try
+        {
+            await InventoryService.UpdateInventoryAsync(new AddStockRequest(_updateTotalShots.Value));
+            _updateSuccess = "Inventory total updated.";
+            await GetInventoryAsync();
+        }
+        catch (Exception ex)
+        {
+            _updateError = ex.Message;
+        }
+        finally
+        {
+            _updateLoading = false;
+        }
+    }
+
+    private void BeginDeleteConfirm()
+    {
+        if (IsBusy)
+            return;
+
+        ClearActionMessages();
+        _showDeleteConfirm = true;
+    }
+
+    private void CancelDeleteConfirm()
+    {
+        if (_deleteLoading)
+            return;
+
+        _showDeleteConfirm = false;
+        _deleteError = null;
+    }
+
+    private async Task DeleteInventoryAsync()
+    {
+        if (_deleteLoading || _inventoryLoading)
+            return;
+
+        _deleteLoading = true;
+        _deleteError = null;
+
+        try
+        {
+            await InventoryService.DeleteInventoryAsync();
+            _deleteSuccess = "Inventory deleted.";
+            _showDeleteConfirm = false;
+            _getInventory = null;
+            await GetInventoryAsync();
+        }
+        catch (Exception ex)
+        {
+            _deleteError = ex.Message;
+        }
+        finally
+        {
+            _deleteLoading = false;
         }
     }
 }

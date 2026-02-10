@@ -52,6 +52,47 @@ public sealed class InventoryService(HttpClient http, AuthService auth)
         }
     }
 
+    public async Task UpdateInventoryAsync(AddStockRequest request, CancellationToken ct = default)
+    {
+        var token = await auth.GetAccessTokenAsync(ct);
+        if (string.IsNullOrWhiteSpace(token))
+            throw new InvalidOperationException("Not logged in.");
+
+        using var message = new HttpRequestMessage(HttpMethod.Put, "api/inventory/update")
+        {
+            Content = JsonContent.Create(request)
+        };
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await http.SendAsync(message, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+                await auth.LogoutAsync(ct);
+
+            throw await CreateApiExceptionAsync(response, "Update inventory failed", ct);
+        }
+    }
+
+    public async Task DeleteInventoryAsync(CancellationToken ct = default)
+    {
+        var token = await auth.GetAccessTokenAsync(ct);
+        if (string.IsNullOrWhiteSpace(token))
+            throw new InvalidOperationException("Not logged in.");
+
+        using var message = new HttpRequestMessage(HttpMethod.Delete, "api/inventory");
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await http.SendAsync(message, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+                await auth.LogoutAsync(ct);
+
+            throw await CreateApiExceptionAsync(response, "Delete inventory failed", ct);
+        }
+    }
+
     public async Task<GetInventoryResponse?> GetInventoryAsync(CancellationToken ct = default)
     {
         var token = await auth.GetAccessTokenAsync(ct);
