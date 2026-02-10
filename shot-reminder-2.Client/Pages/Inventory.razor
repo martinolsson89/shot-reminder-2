@@ -1,19 +1,20 @@
-﻿@page "/inventory"
-@inject HttpClient Http
+@page "/inventory"
 @inject shot_reminder_2.Client.Services.AuthService Auth
 @inject shot_reminder_2.Client.Services.InventoryService InventoryService
 @inject NavigationManager Nav
 @implements IDisposable
 
+@using shot_reminder_2.Contracts.Inventory
+
 <PageTitle>Inventory</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Medium" Class="py-8" Style="text-align: center;">
+<MudContainer MaxWidth="MaxWidth.Medium" Class="py-8">
     @if (_loading)
     {
         <MudPaper Class="pa-6">
             <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Justify="Justify.Center">
                 <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Medium" />
-                <MudText Color="Color.Secondary">Loading shots...</MudText>
+                <MudText Color="Color.Secondary">Loading inventory...</MudText>
             </MudStack>
         </MudPaper>
     }
@@ -25,61 +26,146 @@
     {
         <MudGrid>
             <MudItem xs="12">
-                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=12</MudPaper>
-            </MudItem>
-            <MudItem xs="12" sm="6">
-                <MudPaper Class="align-center justify-center mud-width-full py-8">
-                        <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight: 600">Inventory</MudText>
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap" Spacing="2">
+                        <MudText Typo="Typo.h5"><strong>Shot Inventory</strong></MudText>
+                        @if (_inventoryLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Primary" />
+                        }
+                    </MudStack>
 
-                        @if (!string.IsNullOrWhiteSpace(_getInventoryError))
-                        {
-                            <MudAlert Severity="Severity.Error" Dense="true">@_getInventoryError</MudAlert>
-                        }
-                        else if (_inventoryLoading)
-                        {
-                            <MudText Color="Color.Secondary">Loading...</MudText>
-                        }
-                        else if (_getInventory is null)
-                        {
-                            <MudText Color="Color.Secondary">No inventory is found.</MudText>
-                        }
-                        else
-                        {
-                            <MudStack Spacing="1" AlignItems="AlignItems.Center">
-                                <MudText>@_getInventory.UpdatedAtUtc.ToLocalTime().ToString("ddd, dd MMM yyyy")</MudText>
-                                <MudText>@_getInventory.ShotsLeft shots left</MudText>
-                            </MudStack>
-                        }
+                    @if (!string.IsNullOrWhiteSpace(_getInventoryError))
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Filled" Class="mt-3">
+                            @_getInventoryError
+                        </MudAlert>
+                    }
+                    else if (_inventoryLoading)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-3">Fetching current stock...</MudText>
+                    }
+                    else if (_getInventory is null)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined" Class="mt-3">
+                            No inventory found yet. Add stock to initialize, or use restock to start tracking.
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudStack Row="true" Spacing="3" Wrap="Wrap.Wrap" Class="mt-3" AlignItems="AlignItems.Center">
+                            <MudChip T="string" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Medium">
+                                @_getInventory.ShotsLeft shots left
+                            </MudChip>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Updated @_getInventory.UpdatedAtUtc.ToLocalTime().ToString("ddd, dd MMM yyyy HH:mm")
+                            </MudText>
+                        </MudStack>
+                    }
                 </MudPaper>
             </MudItem>
-            <MudItem xs="12" sm="6">
-                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=12 sm=6</MudPaper>
+
+            <MudItem xs="12" md="8">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.h6" Class="mb-1">Restock</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                        Add shots to your current inventory.
+                    </MudText>
+
+                    @if (!string.IsNullOrWhiteSpace(_restockSuccess))
+                    {
+                        <MudAlert Severity="Severity.Success" Dense="true" Variant="Variant.Filled" Class="mb-3">
+                            @_restockSuccess
+                        </MudAlert>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_restockError))
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Filled" Class="mb-3">
+                            @_restockError
+                        </MudAlert>
+                    }
+
+                    <MudNumericField T="int?"
+                                     Label="Shots to add"
+                                     @bind-Value="_restockShots"
+                                     Min="1"
+                                     Variant="Variant.Outlined"
+                                     FullWidth="true" />
+
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-3">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Disabled="_restockLoading || _addStockLoading || _inventoryLoading"
+                                   StartIcon="@Icons.Material.Filled.AddCircle"
+                                   OnClick="RestockAsync">
+                            @(_restockLoading ? "Restocking..." : "Restock")
+                        </MudButton>
+                    </MudStack>
+                </MudPaper>
             </MudItem>
-            <MudItem xs="6" sm="3">
-                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
-            </MudItem>
-            <MudItem xs="6" sm="3">
-                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
-            </MudItem>
-            <MudItem xs="6" sm="3">
-                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
-            </MudItem>
-            <MudItem xs="6" sm="3">
-                <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">xs=6 sm=3</MudPaper>
+
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-4" Outlined="true">
+                    <MudText Typo="Typo.subtitle1" Class="mb-1">Add stock</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                        Initial setup only.
+                    </MudText>
+
+                    @if (!string.IsNullOrWhiteSpace(_addStockSuccess))
+                    {
+                        <MudAlert Severity="Severity.Success" Dense="true" Variant="Variant.Outlined" Class="mb-3">
+                            @_addStockSuccess
+                        </MudAlert>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_addStockError))
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Outlined" Class="mb-3">
+                            @_addStockError
+                        </MudAlert>
+                    }
+
+                    <MudNumericField T="int?"
+                                     Label="Initial shots"
+                                     @bind-Value="_addStockShots"
+                                     Min="1"
+                                     Variant="Variant.Outlined"
+                                     FullWidth="true" />
+
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-3">
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Secondary"
+                                   Disabled="_addStockLoading || _restockLoading || _inventoryLoading"
+                                   StartIcon="@Icons.Material.Filled.Inventory2"
+                                   OnClick="AddStockAsync">
+                            @(_addStockLoading ? "Adding..." : "Add stock")
+                        </MudButton>
+                    </MudStack>
+                </MudPaper>
             </MudItem>
         </MudGrid>
-
     }
 </MudContainer>
 
-@code 
-    {
+@code
+{
     private bool _loading = true;
     private bool _isLoggedIn;
 
     private string? _getInventoryError;
     private bool _inventoryLoading;
     private GetInventoryResponse? _getInventory;
+
+    private int? _restockShots = 1;
+    private bool _restockLoading;
+    private string? _restockError;
+    private string? _restockSuccess;
+
+    private int? _addStockShots = 1;
+    private bool _addStockLoading;
+    private string? _addStockError;
+    private string? _addStockSuccess;
 
     protected override async Task OnInitializedAsync()
     {
@@ -104,7 +190,14 @@
             }
             else
             {
-                
+                _getInventoryError = null;
+                _getInventory = null;
+                _restockShots = 1;
+                _restockError = null;
+                _restockSuccess = null;
+                _addStockShots = 1;
+                _addStockError = null;
+                _addStockSuccess = null;
             }
 
             StateHasChanged();
@@ -116,13 +209,6 @@
         Auth.AuthStateChanged -= OnAuthStateChanged;
     }
 
-    private class GetInventoryResponse
-    {
-        public Guid UserId { get; set; }
-        public int ShotsLeft { get; set; }
-        public DateTime UpdatedAtUtc { get; set; }
-    }
-
     private async Task GetInventoryAsync()
     {
         _getInventoryError = null;
@@ -130,8 +216,7 @@
 
         try
         {
-            var inventory = await InventoryService.GetInventoryAsync();
-            _getInventory = new GetInventoryResponse { UserId = inventory.UserId, ShotsLeft = inventory.ShotsLeft, UpdatedAtUtc = inventory.UpdatedAtUtc };
+            _getInventory = await InventoryService.GetInventoryAsync();
         }
         catch (Exception ex)
         {
@@ -144,4 +229,73 @@
         }
     }
 
+    private async Task RestockAsync()
+    {
+        if (_restockLoading || _addStockLoading || _inventoryLoading)
+            return;
+
+        _restockError = null;
+        _restockSuccess = null;
+        _addStockError = null;
+        _addStockSuccess = null;
+
+        if (!_restockShots.HasValue || _restockShots.Value <= 0)
+        {
+            _restockError = "Restock amount must be greater than 0.";
+            return;
+        }
+
+        _restockLoading = true;
+
+        try
+        {
+            await InventoryService.RestockAsync(new AddStockRequest(_restockShots.Value));
+            _restockSuccess = $"Added {_restockShots.Value} shot(s).";
+            _restockShots = 1;
+            await GetInventoryAsync();
+        }
+        catch (Exception ex)
+        {
+            _restockError = ex.Message;
+        }
+        finally
+        {
+            _restockLoading = false;
+        }
+    }
+
+    private async Task AddStockAsync()
+    {
+        if (_addStockLoading || _restockLoading || _inventoryLoading)
+            return;
+
+        _addStockError = null;
+        _addStockSuccess = null;
+        _restockError = null;
+        _restockSuccess = null;
+
+        if (!_addStockShots.HasValue || _addStockShots.Value <= 0)
+        {
+            _addStockError = "Initial stock must be greater than 0.";
+            return;
+        }
+
+        _addStockLoading = true;
+
+        try
+        {
+            await InventoryService.AddStockAsync(new AddStockRequest(_addStockShots.Value));
+            _addStockSuccess = "Initial inventory created.";
+            _addStockShots = 1;
+            await GetInventoryAsync();
+        }
+        catch (Exception ex)
+        {
+            _addStockError = ex.Message;
+        }
+        finally
+        {
+            _addStockLoading = false;
+        }
+    }
 }

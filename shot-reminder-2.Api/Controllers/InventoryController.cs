@@ -50,7 +50,7 @@ public class InventoryController : ControllerBase
     }
 
     [HttpPost("restock")]
-    public async Task<IActionResult> ReStock(AddStockRequest request, CancellationToken ct)
+    public async Task<IActionResult> Restock(AddStockRequest request, CancellationToken ct)
     {
         var userId = User.GetUserId();
         
