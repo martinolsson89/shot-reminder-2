@@ -8,6 +8,7 @@ using shot_reminder_2.Application.Use_Cases.Auth.Register;
 using shot_reminder_2.Application.Use_Cases.Inventory.AddStock;
 using shot_reminder_2.Application.Use_Cases.Inventory.ConsumeOne;
 using shot_reminder_2.Application.Use_Cases.Inventory.Delete;
+using shot_reminder_2.Application.Use_Cases.Inventory.GetStock;
 using shot_reminder_2.Application.Use_Cases.Inventory.Restock;
 using shot_reminder_2.Application.Use_Cases.Inventory.Update;
 using shot_reminder_2.Application.Use_Cases.Shots.Delete_Shot;
@@ -44,6 +45,7 @@ builder.Services.AddScoped<RestockHandler>();
 builder.Services.AddScoped<ConsumeOneHandler>();
 builder.Services.AddScoped<DeleteInventoryHandler>();
 builder.Services.AddScoped<UpdateStockHandler>();
+builder.Services.AddScoped<GetStockHandler>();
 
 builder.Services.AddTransient<IEmailSender, GmailSmtpEmailSender>();
 

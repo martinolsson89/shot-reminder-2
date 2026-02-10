@@ -1,10 +1,12 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using shot_reminder_2.Api.Extensions;
 using shot_reminder_2.Application.Use_Cases.Inventory.AddStock;
 using shot_reminder_2.Application.Use_Cases.Inventory.ConsumeOne;
 using shot_reminder_2.Application.Use_Cases.Inventory.Delete;
+using shot_reminder_2.Application.Use_Cases.Inventory.GetStock;
 using shot_reminder_2.Application.Use_Cases.Inventory.Restock;
 using shot_reminder_2.Application.Use_Cases.Inventory.Update;
 using shot_reminder_2.Contracts.Inventory;
@@ -22,15 +24,18 @@ public class InventoryController : ControllerBase
     private readonly ConsumeOneHandler _consumeOneHandler;
     private readonly DeleteInventoryHandler _deleteInventoryHandler;
     private readonly UpdateStockHandler _updateStockHandler;
+    private readonly GetStockHandler _getStockHandler;
+
 
     public InventoryController(AddStockHandler addStockHandler, RestockHandler restockHandler, ConsumeOneHandler consumeOneHandler,
-        DeleteInventoryHandler deleteInventoryHandler, UpdateStockHandler updateStockHandler)
+        DeleteInventoryHandler deleteInventoryHandler, UpdateStockHandler updateStockHandler, GetStockHandler getStockHandler)
     {
         _addStockHandler = addStockHandler;
         _restockHandler = restockHandler;
         _consumeOneHandler = consumeOneHandler;
         _deleteInventoryHandler = deleteInventoryHandler;
         _updateStockHandler = updateStockHandler;
+        _getStockHandler = getStockHandler;
     }
 
     [HttpPost("add")]
@@ -83,5 +88,19 @@ public class InventoryController : ControllerBase
 
         await _updateStockHandler.HandleAsync(new RestockCommand(userId, request.shots), ct);
         return NoContent();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetStock(CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+
+        var res = await _getStockHandler.HandleAsync(userId, ct);
+
+        if (res is null)
+        {
+            return NotFound();
+        }
+        return Ok(res);
     }
 }
