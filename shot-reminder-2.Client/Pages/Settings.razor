@@ -1,0 +1,230 @@
+@page "/settings"
+@inject shot_reminder_2.Client.Services.AuthService Auth
+@inject shot_reminder_2.Client.Services.SettingsService SettingsService
+@inject NavigationManager Nav
+@implements IDisposable
+
+@using shot_reminder_2.Contracts.Settings
+
+<PageTitle>Settings</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="py-8">
+    @if (_loading)
+    {
+        <MudPaper Class="pa-6">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Justify="Justify.Center">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Medium" />
+                <MudText Color="Color.Secondary">Loading settings...</MudText>
+            </MudStack>
+        </MudPaper>
+    }
+    else if (!_isLoggedIn)
+    {
+        Nav.NavigateTo("/");
+    }
+    else
+    {
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.h5" Color="Color.Primary">Shot settings</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                These values are global and used in shot scheduling and low-stock alerts.
+            </MudText>
+
+            @if (!string.IsNullOrWhiteSpace(_loadError))
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Filled" Class="mb-3">
+                    @_loadError
+                </MudAlert>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(_saveSuccess))
+            {
+                <MudAlert Severity="Severity.Success" Dense="true" Variant="Variant.Filled" Class="mb-3">
+                    @_saveSuccess
+                </MudAlert>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(_saveError))
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Filled" Class="mb-3">
+                    @_saveError
+                </MudAlert>
+            }
+
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudNumericField T="int?"
+                                     Label="Interval days"
+                                     @bind-Value="_edit.IntervalDays"
+                                     Min="1"
+                                     Variant="Variant.Outlined"
+                                     FullWidth="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudNumericField T="int?"
+                                     Label="Low stock threshold"
+                                     @bind-Value="_edit.LowStockThreshold"
+                                     Min="0"
+                                     Variant="Variant.Outlined"
+                                     FullWidth="true" />
+                </MudItem>
+            </MudGrid>
+
+            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="1" Class="mt-3">
+                <MudButton Variant="Variant.Text"
+                           Disabled="_saving || _settingsLoading"
+                           OnClick="ResetForm">
+                    Reset
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Disabled="_saving || _settingsLoading"
+                           StartIcon="@Icons.Material.Filled.Save"
+                           OnClick="SaveAsync">
+                    @(_saving ? "Saving..." : "Save")
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    private bool _loading = true;
+    private bool _isLoggedIn;
+    private bool _settingsLoading;
+    private bool _saving;
+
+    private string? _loadError;
+    private string? _saveError;
+    private string? _saveSuccess;
+
+    private SettingsFormModel _edit = new();
+    private GetShotSettingsResponse? _loaded;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.AuthStateChanged += OnAuthStateChanged;
+        _isLoggedIn = await Auth.IsLoggedInAsync();
+
+        if (_isLoggedIn)
+            await LoadSettingsAsync();
+
+        _loading = false;
+    }
+
+    private void OnAuthStateChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            _isLoggedIn = await Auth.IsLoggedInAsync();
+            if (_isLoggedIn)
+            {
+                await LoadSettingsAsync();
+            }
+            else
+            {
+                _loadError = null;
+                _saveError = null;
+                _saveSuccess = null;
+                _loaded = null;
+                _edit = new();
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private async Task LoadSettingsAsync()
+    {
+        _loadError = null;
+        _settingsLoading = true;
+        _saveError = null;
+        _saveSuccess = null;
+
+        try
+        {
+            _loaded = await SettingsService.GetShotSettingsAsync();
+            _edit = new SettingsFormModel
+            {
+                IntervalDays = _loaded.IntervalDays,
+                LowStockThreshold = _loaded.LowStockThreshold
+            };
+        }
+        catch (Exception ex)
+        {
+            _loadError = ex.Message;
+            _loaded = null;
+            _edit = new();
+        }
+        finally
+        {
+            _settingsLoading = false;
+        }
+    }
+
+    private void ResetForm()
+    {
+        if (_saving || _settingsLoading || _loaded is null)
+            return;
+
+        _saveError = null;
+        _saveSuccess = null;
+        _edit = new SettingsFormModel
+        {
+            IntervalDays = _loaded.IntervalDays,
+            LowStockThreshold = _loaded.LowStockThreshold
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_saving || _settingsLoading)
+            return;
+
+        _saveError = null;
+        _saveSuccess = null;
+
+        if (!_edit.IntervalDays.HasValue || _edit.IntervalDays.Value < 1)
+        {
+            _saveError = "Interval days must be at least 1.";
+            return;
+        }
+
+        if (!_edit.LowStockThreshold.HasValue || _edit.LowStockThreshold.Value < 0)
+        {
+            _saveError = "Low stock threshold must be 0 or greater.";
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            await SettingsService.UpdateShotSettingsAsync(new UpdateShotSettingsRequest(
+                IntervalDays: _edit.IntervalDays.Value,
+                LowStockThreshold: _edit.LowStockThreshold.Value));
+
+            _saveSuccess = "Settings updated.";
+            await LoadSettingsAsync();
+        }
+        catch (Exception ex)
+        {
+            _saveError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        Auth.AuthStateChanged -= OnAuthStateChanged;
+    }
+
+    private sealed class SettingsFormModel
+    {
+        public int? IntervalDays { get; set; } = 14;
+        public int? LowStockThreshold { get; set; } = 2;
+    }
+}

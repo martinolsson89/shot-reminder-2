@@ -1,9 +1,7 @@
 ﻿
 
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using shot_reminder_2.Application.Interfaces;
-using shot_reminder_2.Application.Options;
 using shot_reminder_2.Application.Use_Cases.Shots.Register_Shot;
 using shot_reminder_2.Domain.Entities;
 
@@ -13,20 +11,21 @@ public class UpdateShotHandler
 {
     private readonly IShotRepository _shotRepository;
     private readonly ICalendarService _calendarService;
-    private readonly ShotSettings _settings;
+    private readonly IShotSettingsRepository _shotSettingsRepository;
     private readonly ILogger<RegisterShotHandler> _logger;
 
-    public UpdateShotHandler(IShotRepository shotRepository, ICalendarService calendarService, IOptions<ShotSettings> shotSettings, ILogger<RegisterShotHandler> logger)
+    public UpdateShotHandler(IShotRepository shotRepository, ICalendarService calendarService, IShotSettingsRepository shotSettingsRepository, ILogger<RegisterShotHandler> logger)
     {
         _shotRepository = shotRepository;
         _calendarService = calendarService;
-        _settings = shotSettings.Value;
+        _shotSettingsRepository = shotSettingsRepository;
         _logger = logger;
     }
 
     public async Task HandleAsync(UpdateShotCommand command, CancellationToken ct = default)
     {
-        var intervalDays = _settings.IntervalDays;
+        var settings = await _shotSettingsRepository.GetAsync(ct);
+        var intervalDays = settings.IntervalDays;
 
         var shot = new TakenShot(
             id: command.Id,

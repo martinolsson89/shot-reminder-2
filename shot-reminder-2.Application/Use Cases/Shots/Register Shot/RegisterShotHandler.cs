@@ -1,9 +1,7 @@
 ﻿
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using shot_reminder_2.Application.Commons;
 using shot_reminder_2.Application.Interfaces;
-using shot_reminder_2.Application.Options;
 using shot_reminder_2.Domain.Entities;
 
 namespace shot_reminder_2.Application.Use_Cases.Shots.Register_Shot;
@@ -15,25 +13,26 @@ public class RegisterShotHandler
     private readonly IInventoryRepository _inventoryRepository;
     private readonly IEmailSender _emailSender;
     private readonly ICalendarService _calendarService;
-    private readonly ShotSettings _settings;
+    private readonly IShotSettingsRepository _shotSettingsRepository;
     private readonly ILogger<RegisterShotHandler> _logger;
 
     public RegisterShotHandler(IUserRepository userRepository, IShotRepository shotRepository, IInventoryRepository inventoryRepository, 
-        IEmailSender emailSender, ICalendarService calendarService, IOptions<ShotSettings> shotSettings, ILogger<RegisterShotHandler> logger)
+        IEmailSender emailSender, ICalendarService calendarService, IShotSettingsRepository shotSettingsRepository, ILogger<RegisterShotHandler> logger)
     {
         _userRepository = userRepository;
         _shotRepository = shotRepository;
         _inventoryRepository = inventoryRepository;
         _emailSender = emailSender;
         _calendarService = calendarService;
-        _settings = shotSettings.Value;
+        _shotSettingsRepository = shotSettingsRepository;
         _logger = logger;
     }
 
     public async Task<RegisterShotResult> HandleAsync(RegisterShotCommand command, CancellationToken ct = default)
     {
-        var intervalDays = _settings.IntervalDays;
-        var lowStockThreshold = _settings.LowStockThreshold;
+        var settings = await _shotSettingsRepository.GetAsync(ct);
+        var intervalDays = settings.IntervalDays;
+        var lowStockThreshold = settings.LowStockThreshold;
 
         var user = await _userRepository.GetByIdAsync(command.userId, ct);
         if (user is null)

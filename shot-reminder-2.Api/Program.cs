@@ -11,6 +11,8 @@ using shot_reminder_2.Application.Use_Cases.Inventory.Delete;
 using shot_reminder_2.Application.Use_Cases.Inventory.GetStock;
 using shot_reminder_2.Application.Use_Cases.Inventory.Restock;
 using shot_reminder_2.Application.Use_Cases.Inventory.Update;
+using shot_reminder_2.Application.Use_Cases.Settings.Get_Shot_Settings;
+using shot_reminder_2.Application.Use_Cases.Settings.Update_Shot_Settings;
 using shot_reminder_2.Application.Use_Cases.Shots.Delete_Shot;
 using shot_reminder_2.Application.Use_Cases.Shots.Get_Latest;
 using shot_reminder_2.Application.Use_Cases.Shots.GetAll;
@@ -46,6 +48,8 @@ builder.Services.AddScoped<ConsumeOneHandler>();
 builder.Services.AddScoped<DeleteInventoryHandler>();
 builder.Services.AddScoped<UpdateStockHandler>();
 builder.Services.AddScoped<GetStockHandler>();
+builder.Services.AddScoped<GetShotSettingsHandler>();
+builder.Services.AddScoped<UpdateShotSettingsHandler>();
 
 builder.Services.AddTransient<IEmailSender, GmailSmtpEmailSender>();
 
@@ -53,6 +57,7 @@ builder.Services.AddTransient<IEmailSender, GmailSmtpEmailSender>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IShotRepository, ShotRepository>();
 builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
+builder.Services.AddScoped<IShotSettingsRepository, ShotSettingsRepository>();
 
 builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection("Jwt"));

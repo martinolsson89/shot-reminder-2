@@ -2,11 +2,13 @@
 
 @using shot_reminder_2.Contracts.Auth
 @using shot_reminder_2.Contracts.Inventory
+@using shot_reminder_2.Contracts.Settings
 @using shot_reminder_2.Contracts.Shots
 @using Microsoft.AspNetCore.Components.Web
 @implements IDisposable
 @inject shot_reminder_2.Client.Services.AuthService Auth
 @inject shot_reminder_2.Client.Services.InventoryService InventoryService
+@inject shot_reminder_2.Client.Services.SettingsService SettingsService
 @inject shot_reminder_2.Client.Services.ShotsService Shots
 @inject NavigationManager Nav
 
@@ -112,6 +114,10 @@
             <MudItem xs="12" md="4">
                 <MudPaper Class="align-center justify-center mud-width-full py-8">
                     <MudText Typo="Typo.h6" Color="Color.Tertiary" Style="font-weight: 600">Next upcoming shot</MudText>
+                    @if (!string.IsNullOrWhiteSpace(_getSettingsError))
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true">Using default interval (14 days).</MudAlert>
+                    }
 
                     @if (!string.IsNullOrWhiteSpace(_getLatestError))
                     {
@@ -259,6 +265,8 @@
     private bool _inventoryLoading;
     private GetInventoryResponse? _inventory;
     private string? _getInventoryError;
+    private GetShotSettingsResponse? _shotSettings;
+    private string? _getSettingsError;
 
     private string GetColor(Color color) => $"var(--mud-palette-{color.ToDescriptionString()})";
     private List<CustomItem> _events = new();
@@ -288,6 +296,8 @@
                 _events.Clear();
                 _inventory = null;
                 _getInventoryError = null;
+                _shotSettings = null;
+                _getSettingsError = null;
             }
 
             StateHasChanged();
@@ -424,7 +434,7 @@
 
     private async Task RefreshDashboardDataAsync()
     {
-        await Task.WhenAll(GetLatestShotAsync(), GetInventoryAsync());
+        await Task.WhenAll(GetLatestShotAsync(), GetInventoryAsync(), GetShotSettingsAsync());
     }
 
     private Color GetInventoryColor(int shotsLeft)
@@ -450,7 +460,30 @@
     }
 
     private DateTime CalculateUpcomingShot(DateTime lastShotTimeUtc)
-        => lastShotTimeUtc.AddDays(14);
+        => lastShotTimeUtc.AddDays(GetIntervalDays());
+
+    private int GetIntervalDays()
+    {
+        if (_shotSettings is not null && _shotSettings.IntervalDays >= 1)
+            return _shotSettings.IntervalDays;
+
+        return 14;
+    }
+
+    private async Task GetShotSettingsAsync()
+    {
+        _getSettingsError = null;
+
+        try
+        {
+            _shotSettings = await SettingsService.GetShotSettingsAsync();
+        }
+        catch (Exception ex)
+        {
+            _getSettingsError = ex.Message;
+            _shotSettings = null;
+        }
+    }
 
     private string DueLabelUntil(DateTime targetUtc)
     {
