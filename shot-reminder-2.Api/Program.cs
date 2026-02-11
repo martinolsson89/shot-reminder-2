@@ -32,6 +32,11 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 var corsPolicyName = "Client";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+if (allowedOrigins is null || allowedOrigins.Length == 0)
+{
+    allowedOrigins = ["http://localhost:5208", "https://localhost:7046"];
+}
 
 // Add services to the container.
 builder.Services.AddScoped<RegisterShotHandler>();
@@ -84,9 +89,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy(corsPolicyName, policy =>
     {
         policy
-            .WithOrigins(
-                "http://localhost:5208",
-                "https://localhost:7046")
+            .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });

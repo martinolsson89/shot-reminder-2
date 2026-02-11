@@ -1,0 +1,53 @@
+name: Deploy Client
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "shot-reminder-2.Client/**"
+      - "shot-reminder-2.Contracts/**"
+      - ".github/workflows/deploy-client.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Set production API base URL
+        shell: pwsh
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:API_BASE_URL)) {
+            throw "Repository variable API_BASE_URL is not set."
+          }
+
+          $file = "shot-reminder-2.Client/wwwroot/appsettings.json"
+          $content = Get-Content $file -Raw | ConvertFrom-Json
+          $content.ApiBaseUrl = $env:API_BASE_URL
+          $content | ConvertTo-Json | Set-Content $file
+
+      - name: Restore
+        run: dotnet restore ./shot-reminder-2.slnx
+
+      - name: Publish Client
+        run: dotnet publish ./shot-reminder-2.Client/shot-reminder-2.Client.csproj -c Release -o ./publish/client
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          skip_app_build: true
+          app_location: ./publish/client/wwwroot
