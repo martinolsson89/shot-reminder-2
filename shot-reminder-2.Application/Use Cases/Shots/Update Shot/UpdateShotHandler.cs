@@ -54,9 +54,9 @@ public class UpdateShotHandler
                     command.TakenAtUtc);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            _logger.LogWarning("Calendar update failed for user {UserId}", command.UserId);
+            _logger.LogWarning(ex, "Calendar update failed for user {UserId}", command.UserId);
         }
     }
 }

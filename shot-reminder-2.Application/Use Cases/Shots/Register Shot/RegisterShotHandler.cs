@@ -92,9 +92,9 @@ public class RegisterShotHandler
                         command.TakenAtUtc);
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                _logger.LogWarning("Calendar update failed for user {UserId}", command.userId);
+                _logger.LogWarning(ex, "Calendar update failed for user {UserId}", command.userId);
             }
 
 
