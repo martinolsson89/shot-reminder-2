@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using shot_reminder_2.Api.Middleware;
+using shot_reminder_2.Api.Extensions;
 using shot_reminder_2.Application.Interfaces;
 using shot_reminder_2.Application.Options;
 using shot_reminder_2.Application.Use_Cases.Auth.Login;
@@ -140,5 +141,7 @@ app.UseAuthorization();
 app.UseMiddleware<ExceptionMiddleware>();
 
 app.MapControllers();
+
+await app.SeedDefaultUserAsync();
 
 app.Run();

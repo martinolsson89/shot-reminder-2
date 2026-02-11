@@ -1,11 +1,10 @@
-﻿
-namespace shot_reminder_2.Domain.Entities;
+﻿namespace shot_reminder_2.Domain.Entities;
 
 public sealed class User
 {
     public Guid Id { get; private set; }
     public string Email { get; private set; } = default!;
-    public string PasswordHash { get; private set; }
+    public string PasswordHash { get; private set; } = default!;
     public string? FirstName { get; private set; } = default!;
     public string? LastName { get; private set;} = default!;
 
