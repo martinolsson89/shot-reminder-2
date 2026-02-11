@@ -1,0 +1,43 @@
+﻿@implements IDisposable
+@inject shot_reminder_2.Client.Services.AuthService Auth
+@inject NavigationManager Nav
+
+<MudNavMenu>
+    <MudNavLink Href="/" Match="NavLinkMatch.All">Dashboard</MudNavLink>
+    <MudNavLink Href="/shots" Match="NavLinkMatch.Prefix">Shots</MudNavLink>
+    <MudNavLink Href="/inventory" Match="NavLinkMatch.Prefix">Inventory</MudNavLink>
+    <MudNavLink Href="/settings" Match="NavLinkMatch.Prefix">Settings</MudNavLink>
+    @if (_isLoggedIn)
+    {
+        <MudNavLink OnClick="LogoutAsync" Match="NavLinkMatch.Prefix">Logout</MudNavLink>
+    }
+</MudNavMenu>
+
+    @code{
+    private bool _isLoggedIn = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.AuthStateChanged += OnAuthStateChanged;
+        _isLoggedIn = await Auth.IsLoggedInAsync();
+    }
+
+    private void OnAuthStateChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            _isLoggedIn = await Auth.IsLoggedInAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+        => Auth.AuthStateChanged -= OnAuthStateChanged;
+
+    private async Task LogoutAsync()
+    {
+        await Auth.LogoutAsync();
+        _isLoggedIn = false;
+        Nav.NavigateTo("/");
+    }
+}

@@ -19,13 +19,13 @@ namespace shot_reminder_2.Api.Controllers
             _login = login;
         }
 
-        [AllowAnonymous]
-        [HttpPost("register")]
-        public async Task<IActionResult> Register(RegisterRequest request, CancellationToken ct)
-        {
-            var userId = await _register.HandleAsync(request.Email, request.Password, request.FirstName, request.LastName, ct);
-            return Created(nameof(Register), new { userId });
-        }
+        //[AllowAnonymous]
+        //[HttpPost("register")]
+        //public async Task<IActionResult> Register(RegisterRequest request, CancellationToken ct)
+        //{
+        //    var userId = await _register.HandleAsync(request.Email, request.Password, request.FirstName, request.LastName, ct);
+        //    return Created(nameof(Register), new { userId });
+        //}
 
         [AllowAnonymous]
         [HttpPost("login")]

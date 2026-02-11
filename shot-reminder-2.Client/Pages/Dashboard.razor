@@ -1,0 +1,528 @@
+﻿@page "/"
+
+@using shot_reminder_2.Contracts.Auth
+@using shot_reminder_2.Contracts.Inventory
+@using shot_reminder_2.Contracts.Settings
+@using shot_reminder_2.Contracts.Shots
+@using Microsoft.AspNetCore.Components.Web
+@implements IDisposable
+@inject shot_reminder_2.Client.Services.AuthService Auth
+@inject shot_reminder_2.Client.Services.InventoryService InventoryService
+@inject shot_reminder_2.Client.Services.SettingsService SettingsService
+@inject shot_reminder_2.Client.Services.ShotsService Shots
+@inject NavigationManager Nav
+
+<PageTitle>Dashboard</PageTitle>
+
+<MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="mt-20" Style="text-align: center;">
+    @if (_loading)
+    {
+        <MudText Color="Color.Secondary">Loading...</MudText>
+    }
+    else if (!_isLoggedIn)
+    {
+        <MudText Typo="Typo.h4" Inline>
+            <strong>Explore</strong>&nbsp;<strong style="color:#7e6fff;">Dashboard</strong>
+        </MudText>
+        <MudText Class="mb-4" Color="Color.Secondary">Welcome! Please log in to continue.</MudText>
+
+        <MudPaper Class="pa-4" MaxWidth="400px">
+            <MudForm @onsubmit="LoginAsync">
+                <MudTextField @bind-Value="_email"
+                              Label="Email"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              FullWidth="true" />
+
+                <MudTextField @bind-Value="_password"
+                              Label="Password"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              FullWidth="true"
+                              InputType="InputType.Password"
+                              OnKeyUp="PasswordKeyUpAsync" />
+
+                <MudButton Disabled="@_submitting"
+                           ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Class="mt-3">
+                    Login
+                </MudButton>
+
+                @if (!string.IsNullOrWhiteSpace(_error))
+                {
+                    <MudText Color="Color.Error" Class="mt-2">@_error</MudText>
+                }
+            </MudForm>
+        </MudPaper>
+    }
+    else
+    {
+        <MudText Typo="Typo.h6" Class="mb-2" Color="Color.Primary" Style="font-weight: 600">You're logged in.</MudText>
+        <MudText Typo="Typo.h4" Inline>
+            <strong>Explore</strong>&nbsp;<strong style="color:#7e6fff;">Dashboard</strong>
+        </MudText>
+
+        <MudGrid>
+            <MudItem xs="12">
+                <MudPaper Class="mud-width-full pa-6">
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight: 600">Register new shot</MudText>
+
+                        @if (!string.IsNullOrWhiteSpace(_shotSuccess))
+                        {
+                            <MudAlert Severity="Severity.Success" Dense="true">@_shotSuccess</MudAlert>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(_shotError))
+                        {
+                            <MudAlert Severity="Severity.Error" Dense="true">@_shotError</MudAlert>
+                        }
+
+                        <MudForm @ref="_shotForm" @onsubmit="RegisterShotAsync">
+                            <MudTextField @bind-Value="_shotModel.Comment"
+                                          Label="Comment (optional)"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          FullWidth="true" />
+
+                            <MudRadioGroup T="enLeg" @bind-Value="_shotModel.Leg" Required="true" RequiredError="Leg is required!" Class="mt-2">
+                                <MudRadio T="enLeg" Value="enLeg.Left">Left</MudRadio>
+                                <MudRadio T="enLeg" Value="enLeg.Right">Right</MudRadio>
+                            </MudRadioGroup>
+
+                            <MudStack Row="true" Spacing="2" Class="mt-4">
+                                <MudButton Disabled="@_submitting"
+                                           ButtonType="ButtonType.Submit"
+                                           Variant="Variant.Filled"
+                                           Color="Color.Primary">
+                                    Register
+                                </MudButton>
+
+                                <MudButton Disabled="@_submitting"
+                                           OnClick="ResetShotForm"
+                                           Variant="Variant.Outlined"
+                                           Color="Color.Secondary">
+                                    Reset
+                                </MudButton>
+                            </MudStack>
+                        </MudForm>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudPaper Class="align-center justify-center mud-width-full py-8">
+                    <MudText Typo="Typo.h6" Color="Color.Tertiary" Style="font-weight: 600">Next upcoming shot</MudText>
+                    @if (!string.IsNullOrWhiteSpace(_getSettingsError))
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true">Using default interval (14 days).</MudAlert>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_getLatestError))
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true">@_getLatestError</MudAlert>
+                    }
+                    else if (_latestShotLoading)
+                    {
+                        <MudText Color="Color.Secondary">Loading...</MudText>
+                    }
+                    else if (_latestShot is null)
+                    {
+                        <MudText Color="Color.Secondary">No shots registered yet.</MudText>
+                    }
+                    else
+                    {
+                        <MudText Color="Color.Secondary" Style="font-weight: 600">
+                            Due @(_latestShot is null ? "-" : DueLabelUntil(CalculateUpcomingShot(_latestShot.TakenAtUtc)))
+                        </MudText>
+                        <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                            <MudText>@CalculateUpcomingShot(_latestShot.TakenAtUtc).ToLocalTime().ToString("ddd, dd MMM yyyy")</MudText>
+                            <MudChip T="string" Color="@(_latestShot.Leg == enLeg.Left ? Color.Info : Color.Tertiary)" Variant="Variant.Filled" Size="Size.Small">
+                                @(_latestShot.Leg == enLeg.Left ? enLeg.Right : enLeg.Left) leg
+                            </MudChip>
+                        </MudStack>
+                    }
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudPaper Class="align-center justify-center mud-width-full py-8">
+                    <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight: 600">Last taken shot</MudText>
+
+                    @if (!string.IsNullOrWhiteSpace(_getLatestError))
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true">@_getLatestError</MudAlert>
+                    }
+                    else if (_latestShotLoading)
+                    {
+                        <MudText Color="Color.Secondary">Loading...</MudText>
+                    }
+                    else if (_latestShot is null)
+                    {
+                        <MudText Color="Color.Secondary">No shots registered yet.</MudText>
+                    }
+                    else
+                    {
+                        <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                            <MudText>@_latestShot.TakenAtUtc.ToLocalTime().ToString("ddd, dd MMM yyyy")</MudText>
+                            <MudChip T="string" Color="@(_latestShot.Leg == enLeg.Left ? Color.Tertiary : Color.Info)" Variant="Variant.Filled" Size="Size.Small">
+                                @_latestShot.Leg leg
+                            </MudChip>
+                            @if (!string.IsNullOrWhiteSpace(_latestShot.Comment))
+                            {
+                                <MudText><i>"@_latestShot.Comment"</i></MudText>
+                            }
+                        </MudStack>
+                    }
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudPaper Class="align-center justify-center mud-width-full py-8">
+                    <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight: 600">Inventory status</MudText>
+
+                    @if (!string.IsNullOrWhiteSpace(_getInventoryError))
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true">@_getInventoryError</MudAlert>
+                    }
+                    else if (_inventoryLoading)
+                    {
+                        <MudText Color="Color.Secondary">Loading...</MudText>
+                    }
+                    else if (_inventory is null)
+                    {
+                        <MudText Color="Color.Secondary">No inventory found.</MudText>
+                    }
+                    else
+                    {
+                        <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                            <MudText>@_inventory.ShotsLeft shots left</MudText>
+                            <MudChip T="string" Color="@GetInventoryColor(_inventory.ShotsLeft)" Variant="Variant.Filled" Size="Size.Small">
+                                @GetInventoryLabel(_inventory.ShotsLeft)
+                            </MudChip>
+                        </MudStack>
+                    }
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12">
+                <MudPaper Class="mud-width-full pa-6">
+                    <div class="calendar-desktop">
+                        <MudCalendar T="CustomItem" Items="_events" Height="600" ShowDropdownViewSelector="true" ShowPrevNextButtons="false" ToolbarPadding="4" Outlined="false">
+                            <CellTemplate>
+                                <div style="width: 100%; height: 100%; border: 2px solid @GetColor(context.Color)">
+                                    <div style="background-color: @GetColor(context.Color)"><MudText Style="color: #ffffff;" Typo="Typo.body1" Align="Align.Center">@(context.Title)</MudText></div>
+                                    <div class="pa-2"><MudText Typo="Typo.body2">@context.Text</MudText></div>
+                                </div>
+                            </CellTemplate>
+                        </MudCalendar>
+                    </div>
+                    <div class="calendar-mobile">
+                        <MudCalendar T="CustomItem" Items="_events" Height="430" ShowDropdownViewSelector="true" ShowPrevNextButtons="false" ToolbarPadding="4" Outlined="false">
+                            <MonthTemplate>
+                                <div class="d-flex gap-1">
+                                    <MudIcon Icon="@Icons.Material.Filled.Circle" Color="context.Color" Size="Size.Medium" />
+                                </div>
+                            </MonthTemplate>
+                            <WeekTemplate>
+                                <div class="d-flex gap-1">
+                                    <MudIcon Icon="@Icons.Material.Filled.Circle" Color="context.Color" Size="Size.Small" />
+                                </div>
+                            </WeekTemplate>
+                        </MudCalendar>
+                    </div>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudStack>
+
+@code
+    {
+    private bool _loading = true;
+    private bool _isLoggedIn;
+    private bool _submitting;
+
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string? _error;
+
+    private MudForm? _shotForm;
+    private ShotFormModel _shotModel = new() { Leg = enLeg.Left };
+    private string? _shotError;
+    private string? _shotSuccess;
+
+    private bool _latestShotLoading;
+    private LatestShotModel? _latestShot;
+    private string? _getLatestError;
+    private bool _inventoryLoading;
+    private GetInventoryResponse? _inventory;
+    private string? _getInventoryError;
+    private GetShotSettingsResponse? _shotSettings;
+    private string? _getSettingsError;
+
+    private string GetColor(Color color) => $"var(--mud-palette-{color.ToDescriptionString()})";
+    private List<CustomItem> _events = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.AuthStateChanged += OnAuthStateChanged;
+        _isLoggedIn = await Auth.IsLoggedInAsync();
+        if (_isLoggedIn)
+            await RefreshDashboardDataAsync();
+
+        _loading = false;
+    }
+
+    private void OnAuthStateChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            _isLoggedIn = await Auth.IsLoggedInAsync();
+            if (_isLoggedIn)
+            {
+                await RefreshDashboardDataAsync();
+            }
+            else
+            {
+                _latestShot = null;
+                _events.Clear();
+                _inventory = null;
+                _getInventoryError = null;
+                _shotSettings = null;
+                _getSettingsError = null;
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        Auth.AuthStateChanged -= OnAuthStateChanged;
+    }
+
+    private async Task LoginAsync()
+    {
+        _error = null;
+        _submitting = true;
+
+        try
+        {
+            await Auth.LoginAsync(new LoginRequest(_email, _password));
+            _isLoggedIn = true;
+            await RefreshDashboardDataAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+            _password = string.Empty;
+        }
+    }
+
+    private async Task RegisterShotAsync()
+    {
+        _shotError = null;
+        _shotSuccess = null;
+
+        if (_shotForm is null)
+            return;
+
+        await _shotForm.Validate();
+        if (!_shotForm.IsValid)
+            return;
+
+        _submitting = true;
+        try
+        {
+            await Shots.RegisterShotAsync(new RegisterShotRequest(_shotModel.Leg, _shotModel.Comment));
+            _shotSuccess = "Shot registered.";
+            _shotModel = new ShotFormModel { Leg = _shotModel.Leg };
+            await RefreshDashboardDataAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            _shotError = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private void ResetShotForm()
+    {
+        _shotError = null;
+        _shotSuccess = null;
+        _shotModel = new() { Leg = enLeg.Left };
+        _ = _shotForm?.ResetAsync();
+    }
+
+    private sealed class ShotFormModel
+    {
+        public enLeg Leg { get; set; }
+        public string? Comment { get; set; }
+    }
+
+    private sealed class LatestShotModel
+    {
+        public DateTime TakenAtUtc { get; set; }
+        public enLeg Leg { get; set; }
+        public string? Comment { get; set; }
+    }
+
+    private async Task PasswordKeyUpAsync(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" && !_submitting)
+            await LoginAsync();
+    }
+
+    private async Task GetLatestShotAsync()
+    {
+        _getLatestError = null;
+        _latestShotLoading = true;
+
+        try
+        {
+            var latestShot = await Shots.GetLatestShotAsync();
+            _latestShot = new LatestShotModel { TakenAtUtc = latestShot.TakenAtUtc, Leg = latestShot.Leg, Comment = latestShot.Comment };
+        }
+        catch (Exception ex)
+        {
+            _getLatestError = ex.Message;
+            _latestShot = null;
+        }
+        finally
+        {
+            UpdateCalendar();
+            _latestShotLoading = false;
+        }
+    }
+
+    private async Task GetInventoryAsync()
+    {
+        _getInventoryError = null;
+        _inventoryLoading = true;
+
+        try
+        {
+            _inventory = await InventoryService.GetInventoryAsync();
+        }
+        catch (Exception ex)
+        {
+            _getInventoryError = ex.Message;
+            _inventory = null;
+        }
+        finally
+        {
+            _inventoryLoading = false;
+        }
+    }
+
+    private async Task RefreshDashboardDataAsync()
+    {
+        await Task.WhenAll(GetLatestShotAsync(), GetInventoryAsync(), GetShotSettingsAsync());
+    }
+
+    private Color GetInventoryColor(int shotsLeft)
+    {
+        if (shotsLeft >= 5)
+            return Color.Tertiary;
+
+        if (shotsLeft <= 4 && shotsLeft >= 3)
+            return Color.Primary;
+
+        return Color.Error;
+    }
+
+    private static string GetInventoryLabel(int shotsLeft)
+    {
+        if (shotsLeft >= 5)
+            return "Good";
+
+        if (shotsLeft <= 4 && shotsLeft >= 3)
+            return "Low";
+
+        return "Critical";
+    }
+
+    private DateTime CalculateUpcomingShot(DateTime lastShotTimeUtc)
+        => lastShotTimeUtc.AddDays(GetIntervalDays());
+
+    private int GetIntervalDays()
+    {
+        if (_shotSettings is not null && _shotSettings.IntervalDays >= 1)
+            return _shotSettings.IntervalDays;
+
+        return 14;
+    }
+
+    private async Task GetShotSettingsAsync()
+    {
+        _getSettingsError = null;
+
+        try
+        {
+            _shotSettings = await SettingsService.GetShotSettingsAsync();
+        }
+        catch (Exception ex)
+        {
+            _getSettingsError = ex.Message;
+            _shotSettings = null;
+        }
+    }
+
+    private string DueLabelUntil(DateTime targetUtc)
+    {
+        var nowUtc = DateTime.UtcNow;
+
+        // If overdue or due earlier today -> "Today"
+        if (targetUtc <= nowUtc)
+            return "Today";
+
+        var days = (targetUtc.Date - nowUtc.Date).Days;
+
+        return days switch
+        {
+            0 => "Today",
+            1 => "Tomorrow",
+            _ => $"in {days} days"
+        };
+    }
+
+    private void UpdateCalendar()
+    {
+        _events.Clear();
+        if (_latestShot is null)
+            return;
+
+            _events.Add(new CustomItem
+        {
+            Start = _latestShot.TakenAtUtc,
+            End = _latestShot.TakenAtUtc.AddHours(1),
+            Title = "Taken Shot",
+            Text = _latestShot.Comment ?? string.Empty,
+            Color = Color.Secondary
+        });
+
+        var dueAt = CalculateUpcomingShot(_latestShot.TakenAtUtc);
+        _events.Add(new CustomItem
+        {
+            Start = dueAt,
+            End = dueAt.AddHours(1),
+            Title = "Next Shot",
+            Color = Color.Tertiary
+        });
+    }
+
+    private class CustomItem : CalendarItem
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
+        public Color Color { get; set; } = Color.Primary;
+    }
+}

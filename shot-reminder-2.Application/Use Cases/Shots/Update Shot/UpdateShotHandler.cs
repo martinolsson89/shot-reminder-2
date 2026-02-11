@@ -1,6 +1,8 @@
 ﻿
 
+using Microsoft.Extensions.Logging;
 using shot_reminder_2.Application.Interfaces;
+using shot_reminder_2.Application.Use_Cases.Shots.Register_Shot;
 using shot_reminder_2.Domain.Entities;
 
 namespace shot_reminder_2.Application.Use_Cases.Shots.Update_Shot;
@@ -8,14 +10,23 @@ namespace shot_reminder_2.Application.Use_Cases.Shots.Update_Shot;
 public class UpdateShotHandler
 {
     private readonly IShotRepository _shotRepository;
+    private readonly ICalendarService _calendarService;
+    private readonly IShotSettingsRepository _shotSettingsRepository;
+    private readonly ILogger<RegisterShotHandler> _logger;
 
-    public UpdateShotHandler(IShotRepository shotRepository)
+    public UpdateShotHandler(IShotRepository shotRepository, ICalendarService calendarService, IShotSettingsRepository shotSettingsRepository, ILogger<RegisterShotHandler> logger)
     {
         _shotRepository = shotRepository;
+        _calendarService = calendarService;
+        _shotSettingsRepository = shotSettingsRepository;
+        _logger = logger;
     }
 
     public async Task HandleAsync(UpdateShotCommand command, CancellationToken ct = default)
     {
+        var settings = await _shotSettingsRepository.GetAsync(ct);
+        var intervalDays = settings.IntervalDays;
+
         var shot = new TakenShot(
             id: command.Id,
             userid: command.UserId,
@@ -24,5 +35,28 @@ public class UpdateShotHandler
             comment: command.Comment);
 
         await _shotRepository.UpdateAsync(shot, ct);
+
+        try
+        {
+            var hasNewerShot = await _shotRepository.ExistsWithTakenAtUtcAfterAsync(command.UserId, command.TakenAtUtc, ct);
+            if (!hasNewerShot)
+            {
+                string leg = command.Leg == enLeg.Left ? enLeg.Right.ToString() : enLeg.Left.ToString();
+                var nextDueAtUtc = command.TakenAtUtc.AddDays(intervalDays);
+
+                await _calendarService.UpsertNextShotEventAsync(command.UserId, nextDueAtUtc, leg, ct);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Skipping calendar update for user {UserId} because a newer shot already exists than {TakenAtUtc}",
+                    command.UserId,
+                    command.TakenAtUtc);
+            }
+        }
+        catch
+        {
+            _logger.LogWarning("Calendar update failed for user {UserId}", command.UserId);
+        }
     }
 }

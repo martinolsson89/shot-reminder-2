@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using shot_reminder_2.Api.Middleware;
+using shot_reminder_2.Api.Extensions;
 using shot_reminder_2.Application.Interfaces;
 using shot_reminder_2.Application.Options;
 using shot_reminder_2.Application.Use_Cases.Auth.Login;
@@ -8,9 +9,13 @@ using shot_reminder_2.Application.Use_Cases.Auth.Register;
 using shot_reminder_2.Application.Use_Cases.Inventory.AddStock;
 using shot_reminder_2.Application.Use_Cases.Inventory.ConsumeOne;
 using shot_reminder_2.Application.Use_Cases.Inventory.Delete;
+using shot_reminder_2.Application.Use_Cases.Inventory.GetStock;
 using shot_reminder_2.Application.Use_Cases.Inventory.Restock;
 using shot_reminder_2.Application.Use_Cases.Inventory.Update;
+using shot_reminder_2.Application.Use_Cases.Settings.Get_Shot_Settings;
+using shot_reminder_2.Application.Use_Cases.Settings.Update_Shot_Settings;
 using shot_reminder_2.Application.Use_Cases.Shots.Delete_Shot;
+using shot_reminder_2.Application.Use_Cases.Shots.Get_Latest;
 using shot_reminder_2.Application.Use_Cases.Shots.GetAll;
 using shot_reminder_2.Application.Use_Cases.Shots.GetById;
 using shot_reminder_2.Application.Use_Cases.Shots.Register_Shot;
@@ -26,6 +31,8 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var corsPolicyName = "Client";
+
 // Add services to the container.
 builder.Services.AddScoped<RegisterShotHandler>();
 builder.Services.AddScoped<GetShotsHandler>();
@@ -33,6 +40,7 @@ builder.Services.AddScoped<CreateUserHandler>();
 builder.Services.AddScoped<UpdateShotHandler>();
 builder.Services.AddScoped<DeleteShotHandler>();
 builder.Services.AddScoped<GetShotByIdHandler>();
+builder.Services.AddScoped<GetLatestHandler>();
 builder.Services.AddScoped<RegisterUserHandler>();
 builder.Services.AddScoped<LoginHandler>();
 builder.Services.AddScoped<AddStockHandler>();
@@ -40,6 +48,9 @@ builder.Services.AddScoped<RestockHandler>();
 builder.Services.AddScoped<ConsumeOneHandler>();
 builder.Services.AddScoped<DeleteInventoryHandler>();
 builder.Services.AddScoped<UpdateStockHandler>();
+builder.Services.AddScoped<GetStockHandler>();
+builder.Services.AddScoped<GetShotSettingsHandler>();
+builder.Services.AddScoped<UpdateShotSettingsHandler>();
 
 builder.Services.AddTransient<IEmailSender, GmailSmtpEmailSender>();
 
@@ -47,6 +58,7 @@ builder.Services.AddTransient<IEmailSender, GmailSmtpEmailSender>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IShotRepository, ShotRepository>();
 builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
+builder.Services.AddScoped<IShotSettingsRepository, ShotSettingsRepository>();
 
 builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection("Jwt"));
@@ -66,6 +78,19 @@ builder.Services.AddSingleton<ICalendarService, GoogleCalendarService>();
 builder.Services.AddTransient<ExceptionMiddleware>();
 
 builder.Services.AddControllers();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(corsPolicyName, policy =>
+    {
+        policy
+            .WithOrigins(
+                "http://localhost:5208",
+                "https://localhost:7046")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 
 builder.Services.Configure<MongoOptions>(
     builder.Configuration.GetSection("Mongo"));
@@ -108,11 +133,15 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseCors(corsPolicyName);
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseMiddleware<ExceptionMiddleware>();
 
 app.MapControllers();
+
+await app.SeedDefaultUserAsync();
 
 app.Run();

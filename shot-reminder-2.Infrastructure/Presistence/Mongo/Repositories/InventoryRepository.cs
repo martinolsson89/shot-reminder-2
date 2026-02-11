@@ -2,6 +2,7 @@
 using MongoDB.Driver;
 using shot_reminder_2.Application.Commons;
 using shot_reminder_2.Application.Interfaces;
+using shot_reminder_2.Application.Use_Cases.Inventory.GetStock;
 using shot_reminder_2.Domain.Entities;
 using shot_reminder_2.Infrastructure.Presistence.Mongo.Collections;
 using shot_reminder_2.Infrastructure.Presistence.Mongo.Context;
@@ -79,13 +80,23 @@ public class InventoryRepository : IInventoryRepository
             throw new KeyNotFoundException();
     }
 
-    public async Task<int> GetAsync(Guid userId, CancellationToken ct = default)
+    public async Task<GetStockResult?> GetAsync(Guid userId, CancellationToken ct = default)
     {
         var filter = Builders<ShotsInventoryDocument>.Filter.Eq(x => x.UserId, userId);
 
-        var res = await _inventory.Find(filter).ToListAsync();
+        var doc = await _inventory.Find(filter).FirstOrDefaultAsync(ct);
 
-        return res.Count;
+        if (doc is null)
+            return null;
+
+        var inventoryResponse = new GetStockResult
+            (
+                UserId: doc.UserId,
+                ShotsLeft: doc.ShotsLeft,
+                UpdatedAtUtc: doc.UpdatedAtUtc
+            );
+
+        return inventoryResponse;
     }
 
     public async Task RestockAsync(Guid userId, int added, CancellationToken ct = default)
