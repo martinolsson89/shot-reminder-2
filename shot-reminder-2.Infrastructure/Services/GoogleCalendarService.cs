@@ -48,7 +48,7 @@ public sealed class GoogleCalendarService : ICalendarService
 
             var tz = TimeZoneInfo.FindSystemTimeZoneById(_opt.TimeZoneId);
             var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(nextDueAtUtc, DateTimeKind.Utc), tz);
-            var ben = leg.ToLower() == "left" ? "höger" : "vänster";
+            var ben = leg.Equals("left", StringComparison.OrdinalIgnoreCase) ? "vänster" : "höger";
 
             var ev = new Event
             {
