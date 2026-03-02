@@ -59,6 +59,8 @@ builder.Services.AddScoped<UpdateShotSettingsHandler>();
 
 builder.Services.AddTransient<IEmailSender, GmailSmtpEmailSender>();
 
+builder.Services.AddMemoryCache();
+
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IShotRepository, ShotRepository>();

@@ -4,12 +4,14 @@
 @using shot_reminder_2.Contracts.Inventory
 @using shot_reminder_2.Contracts.Settings
 @using shot_reminder_2.Contracts.Shots
+@using shot_reminder_2.Contracts.Google
 @using Microsoft.AspNetCore.Components.Web
 @implements IDisposable
 @inject shot_reminder_2.Client.Services.AuthService Auth
 @inject shot_reminder_2.Client.Services.InventoryService InventoryService
 @inject shot_reminder_2.Client.Services.SettingsService SettingsService
 @inject shot_reminder_2.Client.Services.ShotsService Shots
+@inject shot_reminder_2.Client.Services.GoogleCalendarConnectionService GoogleCalendar
 @inject NavigationManager Nav
 
 <PageTitle>Dashboard</PageTitle>
@@ -203,6 +205,45 @@
                     }
                 </MudPaper>
             </MudItem>
+            <MudItem xs="12" md="4">
+                <MudPaper Class="align-center justify-center mud-width-full py-8">
+                    <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight: 600">Google Calendar</MudText>
+
+                    @if (!string.IsNullOrWhiteSpace(_googleError))
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true">@_googleError</MudAlert>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_googleSuccess))
+                    {
+                        <MudAlert Severity="Severity.Success" Dense="true">@_googleSuccess</MudAlert>
+                    }
+
+                    @if (_googleLoading)
+                    {
+                        <MudText Color="Color.Secondary">Loading...</MudText>
+                    }
+                    else
+                    {
+                        <MudText Color="Color.Secondary" Class="mb-2">@(_googleConnected ? "Connected" : "Not connected")</MudText>
+                        <MudStack Row="true" Spacing="1" Justify="Justify.Center">
+                            <MudButton Disabled="@(_googleBusy || _googleConnected)"
+                                       OnClick="ConnectGoogleAsync"
+                                       Variant="Variant.Filled"
+                                       Color="Color.Primary">
+                                Connect to Google
+                            </MudButton>
+
+                            <MudButton Disabled="@(_googleBusy || !_googleConnected)"
+                                       OnClick="DisconnectGoogleAsync"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Secondary">
+                                Disconnect Google
+                            </MudButton>
+                        </MudStack>
+                    }
+                </MudPaper>
+            </MudItem>
             <MudItem xs="12">
                 <MudPaper Class="mud-width-full pa-6">
                     <div class="calendar-desktop">
@@ -258,6 +299,11 @@
     private string? _getInventoryError;
     private GetShotSettingsResponse? _shotSettings;
     private string? _getSettingsError;
+    private bool _googleLoading;
+    private bool _googleConnected;
+    private bool _googleBusy;
+    private string? _googleError;
+    private string? _googleSuccess;
 
     private string GetColor(Color color) => $"var(--mud-palette-{color.ToDescriptionString()})";
     private List<CustomItem> _events = new();
@@ -266,6 +312,8 @@
     {
         Auth.AuthStateChanged += OnAuthStateChanged;
         _isLoggedIn = await Auth.IsLoggedInAsync();
+
+        ApplyGoogleRedirectStatus();
         if (_isLoggedIn)
             await RefreshDashboardDataAsync();
 
@@ -289,6 +337,9 @@
                 _getInventoryError = null;
                 _shotSettings = null;
                 _getSettingsError = null;
+                _googleConnected = false;
+                _googleError = null;
+                _googleSuccess = null;
             }
 
             StateHasChanged();
@@ -425,7 +476,7 @@
 
     private async Task RefreshDashboardDataAsync()
     {
-        await Task.WhenAll(GetLatestShotAsync(), GetInventoryAsync(), GetShotSettingsAsync());
+        await Task.WhenAll(GetLatestShotAsync(), GetInventoryAsync(), GetShotSettingsAsync(), LoadGoogleStatusAsync());
     }
 
     private Color GetInventoryColor(int shotsLeft)
@@ -474,6 +525,125 @@
             _getSettingsError = ex.Message;
             _shotSettings = null;
         }
+    }
+
+    private async Task LoadGoogleStatusAsync()
+    {
+        _googleError = null;
+        _googleLoading = true;
+
+        try
+        {
+            var status = await GoogleCalendar.GetStatusAsync();
+            _googleConnected = status.IsConnected;
+        }
+        catch (Exception ex)
+        {
+            _googleError = ex.Message;
+            _googleConnected = false;
+        }
+        finally
+        {
+            _googleLoading = false;
+        }
+    }
+
+    private async Task ConnectGoogleAsync()
+    {
+        if (_googleBusy)
+            return;
+
+        _googleBusy = true;
+        _googleError = null;
+        _googleSuccess = null;
+
+        try
+        {
+            var url = await GoogleCalendar.GetConnectUrlAsync();
+            Nav.NavigateTo(url, forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            _googleError = ex.Message;
+        }
+        finally
+        {
+            _googleBusy = false;
+        }
+    }
+
+    private async Task DisconnectGoogleAsync()
+    {
+        if (_googleBusy)
+            return;
+
+        _googleBusy = true;
+        _googleError = null;
+        _googleSuccess = null;
+
+        try
+        {
+            await GoogleCalendar.DisconnectAsync();
+            _googleConnected = false;
+            _googleSuccess = "Google Calendar disconnected.";
+        }
+        catch (Exception ex)
+        {
+            _googleError = ex.Message;
+        }
+        finally
+        {
+            _googleBusy = false;
+        }
+    }
+
+    private void ApplyGoogleRedirectStatus()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var query = ParseQueryString(uri.Query);
+
+        if (!query.TryGetValue("google", out var status) || string.IsNullOrWhiteSpace(status))
+            return;
+
+        _googleSuccess = status switch
+        {
+            "connected" => "Google Calendar connected.",
+            _ => _googleSuccess
+        };
+
+        _googleError = status switch
+        {
+            "error" => "Google authorization failed.",
+            "missing_refresh" => "Google did not return a refresh token. Please try again.",
+            _ => _googleError
+        };
+
+        Nav.NavigateTo(uri.GetLeftPart(UriPartial.Path), replace: true);
+    }
+
+    private static IReadOnlyDictionary<string, string?> ParseQueryString(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return new Dictionary<string, string?>();
+
+        var trimmed = query.StartsWith('?') ? query[1..] : query;
+        if (string.IsNullOrWhiteSpace(trimmed))
+            return new Dictionary<string, string?>();
+
+        var result = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var part in trimmed.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var segments = part.Split('=', 2);
+            if (segments.Length == 0)
+                continue;
+
+            var key = Uri.UnescapeDataString(segments[0]);
+            var value = segments.Length > 1 ? Uri.UnescapeDataString(segments[1]) : null;
+            if (!string.IsNullOrWhiteSpace(key))
+                result[key] = value;
+        }
+
+        return result;
     }
 
     private string DueLabelUntil(DateTime targetUtc)

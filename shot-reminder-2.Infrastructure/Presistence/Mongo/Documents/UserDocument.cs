@@ -16,4 +16,5 @@ public class UserDocument
 
     public string? GoogleCalendarId { get; set; } = "primary";
     public string? GoogleNextShotEventId { get; set; }
+    public string? GoogleRefreshToken { get; set; }
 }

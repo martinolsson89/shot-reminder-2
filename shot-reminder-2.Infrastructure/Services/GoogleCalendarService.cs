@@ -44,7 +44,19 @@ public sealed class GoogleCalendarService : ICalendarService
 
             calendarId = user.GoogleCalendarId ?? _opt.CalendarId;
 
-            var svc = await _factory.CreateAsync(_opt.RefreshToken, ct);
+            var refreshToken = string.IsNullOrWhiteSpace(user.GoogleRefreshToken)
+                ? _opt.RefreshToken
+                : user.GoogleRefreshToken;
+
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                _logger.LogInformation(
+                    "Skipping Google Calendar update for user {UserId} because no refresh token is configured.",
+                    userId);
+                return;
+            }
+
+            var svc = await _factory.CreateAsync(refreshToken, ct);
 
             var tz = TimeZoneInfo.FindSystemTimeZoneById(_opt.TimeZoneId);
             var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(nextDueAtUtc, DateTimeKind.Utc), tz);

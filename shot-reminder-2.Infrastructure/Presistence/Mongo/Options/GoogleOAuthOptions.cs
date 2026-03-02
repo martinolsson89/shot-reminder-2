@@ -9,4 +9,7 @@ public sealed class GoogleOAuthOptions
 
     public string CalendarId { get; init; } = "primary";
     public string TimeZoneId { get; init; } = "Europe/Stockholm";
+    public string RedirectUri { get; init; } = default!;
+    public string ClientRedirectUri { get; init; } = default!;
+    public int StateCacheMinutes { get; init; } = 10;
 }

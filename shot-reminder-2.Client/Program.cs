@@ -20,6 +20,7 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ShotsService>();
 builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<SettingsService>();
+builder.Services.AddScoped<GoogleCalendarConnectionService>();
 
 
 await builder.Build().RunAsync();
